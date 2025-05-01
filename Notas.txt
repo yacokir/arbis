@@ -25,4 +25,6 @@ o	- Arquivos copiados: mainheap.js, coordenador.js, workers, saida.txt, ArbsBTCU
 
 o	- Próximo passo: Configurar Git e iniciar Fase 1 (comunicação main-coordenador).
 
+o	- Backup: backups_arbis/fase1_ok_20250501
+o	- Descrição: Backup inicial antes da Fase 1.
 
