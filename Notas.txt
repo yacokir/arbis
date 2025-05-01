@@ -1,0 +1,28 @@
+Projeto ARBIS Novo (30/04/2025)
+
+o	- Início: Copiei arquivos operacionais do projeto antigo.
+o	- Arquivos copiados: mainheap.js, coordenador.js, workers, saida.txt, ArbsBTCUSDTBRL.txt
+ Pasta de C:\Users\Yaco\Desktop\Cryptos\ARBIS
+01/05/2025  07:55    <DIR>          .
+01/05/2025  07:55    <DIR>          ..
+01/05/2025  07:53    <DIR>          backups
+30/04/2025  07:55            14.237 coordenador.js
+01/05/2025  07:53    <DIR>          logs
+29/04/2025  05:36            19.628 mainHeap.js
+29/04/2025  08:40            28.056 mainHeapV0.js
+29/04/2025  15:04            27.425 mainHeapV1.js
+30/04/2025  15:40           338.864 saida.txt
+29/04/2025  09:11           476.036 saida0.txt
+30/04/2025  15:40           338.408 saidaV1.txt
+03/03/2025  08:29             5.443 workerBinance.js
+03/03/2025  07:14             6.565 workerBitpreco.js
+28/02/2025  17:21             2.685 workerBybit.js
+27/02/2025  07:51             2.871 workerDeribit.js
+27/04/2025  16:43             8.108 workerExecBinance.js
+27/04/2025  16:42            12.829 workerExecBybit.js
+27/04/2025  16:41             9.666 workerExecOKX.js
+26/02/2025  18:07             2.929 workerOkx.js
+
+o	- Próximo passo: Configurar Git e iniciar Fase 1 (comunicação main-coordenador).
+
+
