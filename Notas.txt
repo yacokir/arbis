@@ -1,16 +1,100 @@
-Projeto ARBIS Novo (30/04/2025)
+Log de Mudanças - Sistema ARBIS 29/04/2025
 
-o	- Início: Copiei arquivos operacionais do projeto antigo.
-o	- Arquivos copiados: mainheap.js, coordenador.js, workers, saida.txt, ArbsBTCUSDTBRL.txt
+C:\Users\Yaco\Desktop\Cryptos\ARBIS>dir *.
+ O volume na unidade C não tem nome.
+ O Número de Série do Volume é 5C46-3445
+
  Pasta de C:\Users\Yaco\Desktop\Cryptos\ARBIS
-01/05/2025  07:55    <DIR>          .
-01/05/2025  07:55    <DIR>          ..
-01/05/2025  07:53    <DIR>          backups
-30/04/2025  07:55            14.237 coordenador.js
-01/05/2025  07:53    <DIR>          logs
+
+02/05/2025  10:29    <DIR>          .
+02/05/2025  10:29    <DIR>          ..
+01/05/2025  09:04    <DIR>          backups
+02/05/2025  12:58    <DIR>          fase1
+01/05/2025  09:17                44 .gitignore
+02/05/2025  08:45    <DIR>          .history
+01/05/2025  09:29    <DIR>          logs
+               1 arquivo(s)             44 bytes
+               6 pasta(s)   39.202.340.864 bytes disponíveis
+
+Pasta de C:\Users\Yaco\Desktop\Cryptos\ARBIS
+
+02/05/2025  10:29    <DIR>          .
+02/05/2025  10:29    <DIR>          ..
+01/05/2025  09:17                44 .gitignore
+02/05/2025  08:45    <DIR>          .history
+01/05/2025  18:56                38 arbis.bat
+01/05/2025  19:09               219 ArbsBTCUSDTBRL-01-19-09-11.txt
+01/05/2025  19:13               219 ArbsBTCUSDTBRL-01-19-13-13.txt
+02/05/2025  09:36               219 ArbsBTCUSDTBRL-02-09-36-14.txt
+02/05/2025  10:26               219 ArbsBTCUSDTBRL-02-10-26-29.txt
+02/05/2025  10:28               557 ArbsBTCUSDTBRL-02-10-27-27.txt
+02/05/2025  10:29               400 ArbsBTCUSDTBRL-02-10-29-40.txt
+02/05/2025  09:36               219 ArbsBTCUSDTBRL.-02-09-36-02.txt
+01/05/2025  09:04    <DIR>          backups
+02/05/2025  08:45            14.109 coordenador.js
+02/05/2025  10:27            14.897 coordenador_fase1.js
+02/05/2025  12:58    <DIR>          fase1
+01/05/2025  09:29    <DIR>          logs
 29/04/2025  05:36            19.628 mainHeap.js
 29/04/2025  08:40            28.056 mainHeapV0.js
 29/04/2025  15:04            27.425 mainHeapV1.js
+01/05/2025  09:05             1.370 Notas.txt
+02/05/2025  10:29             4.076 saida.txt
+03/03/2025  08:29             5.443 workerBinance.js
+03/03/2025  07:14             6.565 workerBitpreco.js
+28/02/2025  17:21             2.685 workerBybit.js
+27/02/2025  07:51             2.871 workerDeribit.js
+27/04/2025  16:43             8.108 workerExecBinance.js
+27/04/2025  16:42            12.829 workerExecBybit.js
+27/04/2025  16:41             9.666 workerExecOKX.js
+26/02/2025  18:07             2.929 workerOkx.js
+              24 arquivo(s)        162.791 bytes
+               6 pasta(s)   39.202.357.248 bytes disponíveis
+
+C:\Users\Yaco\Desktop\Cryptos\ARBIS>dir fase1
+ O volume na unidade C não tem nome.
+ O Número de Série do Volume é 5C46-3445
+
+ Pasta de C:\Users\Yaco\Desktop\Cryptos\ARBIS\fase1
+
+02/05/2025  12:58    <DIR>          .
+02/05/2025  12:58    <DIR>          ..
+02/05/2025  10:31               219 ArbsBTCUSDTBRL-02-10-31-26.txt
+02/05/2025  11:14               219 ArbsBTCUSDTBRL-02-11-14-06.txt
+02/05/2025  11:15               219 ArbsBTCUSDTBRL-02-11-15-39.txt
+02/05/2025  12:58               219 ArbsBTCUSDTBRL-02-12-58-23.txt
+02/05/2025  10:27            14.897 coordenador_fase1.js
+02/05/2025  12:58            20.580 mainHeap_fase1.js
+02/05/2025  12:58                 0 saida.txt
+               7 arquivo(s)         36.353 bytes
+               2 pasta(s)   39.199.907.840 bytes disponíveis
+
+C:\Users\Yaco\Desktop\Cryptos\ARBIS>dir backups
+ O volume na unidade C não tem nome.
+ O Número de Série do Volume é 5C46-3445
+
+ Pasta de C:\Users\Yaco\Desktop\Cryptos\ARBIS\backups
+
+01/05/2025  09:04    <DIR>          .
+01/05/2025  09:04    <DIR>          ..
+01/05/2025  09:05    <DIR>          fase1_ok_20250501
+               0 arquivo(s)              0 bytes
+               3 pasta(s)   39.200.243.712 bytes disponíveis
+
+C:\Users\Yaco\Desktop\Cryptos\ARBIS>dir backups\fase1_ok_20250501
+ O volume na unidade C não tem nome.
+ O Número de Série do Volume é 5C46-3445
+
+ Pasta de C:\Users\Yaco\Desktop\Cryptos\ARBIS\backups\fase1_ok_20250501
+
+01/05/2025  09:05    <DIR>          .
+01/05/2025  09:05    <DIR>          ..
+01/05/2025  08:27                34 .gitignore
+30/04/2025  07:55            14.237 coordenador.js
+29/04/2025  05:36            19.628 mainHeap.js
+29/04/2025  08:40            28.056 mainHeapV0.js
+29/04/2025  15:04            27.425 mainHeapV1.js
+01/05/2025  08:04             1.275 Notas.txt
 30/04/2025  15:40           338.864 saida.txt
 29/04/2025  09:11           476.036 saida0.txt
 30/04/2025  15:40           338.408 saidaV1.txt
@@ -22,9 +106,48 @@ o	- Arquivos copiados: mainheap.js, coordenador.js, workers, saida.txt, ArbsBTCU
 27/04/2025  16:42            12.829 workerExecBybit.js
 27/04/2025  16:41             9.666 workerExecOKX.js
 26/02/2025  18:07             2.929 workerOkx.js
+              17 arquivo(s)      1.295.059 bytes
+               2 pasta(s)   39.199.748.096 bytes disponíveis
 
-o	- Próximo passo: Configurar Git e iniciar Fase 1 (comunicação main-coordenador).
+======================================
+Log de Mudanças - Sistema ARBIS
+==============================
+Data: 02/05/2025
+Fase: 1
 
-o	- Backup: backups_arbis/fase1_ok_20250501
-o	- Descrição: Backup inicial antes da Fase 1.
+Arquivos modificados:
+  - fase1/mainheap_fase1.js
+  - fase1/coordenador_fase1.js
+
+Base:
+  - Backup fase1_ok_20250501
+
+Mudanças:
+  - mainheap_fase1.js:
+    - Adicionado `const path = require('path');` para corrigir erro de ReferenceError.
+    - Implementada inicialização de coordenador_fase1.js com MessageChannel para comunicação ping/pong.
+    - Adicionados logs com marcador `<==================================` para rastreamento.
+    - Alterado caminho dos workers de `./worker${exchange}.js` para `../worker${exchange}.js` devido à mudança de mainheap_fase1.js para a pasta fase1.
+  - coordenador_fase1.js:
+    - Substituída matriz de operações para ["Bybit:BTCUSDT","OKX:BTCBRL","Binance:USDTBRL"].
+    - Adicionada resposta a mensagens ping com pong.
+    - Adicionados logs com marcador `<==================================` para rastreamento.
+
+Objetivo:
+  - Testar comunicação ping/pong entre mainheap_fase1.js e coordenador_fase1.js (Fase 1).
+
+Status:
+  - Comunicação ping/pong: Sucesso (logs confirmados em console e saida.txt).
+  - Workers de dados: Funcionando, coletando cotações (BTCUSDT, BTCBRL, USDTBRL).
+  - WorkerExec:
+    - Binance: Conexão e autenticação OK.
+    - OKX: Conexão, autenticação e subscrição OK.
+    - Bybit: Conexão WebSocket OK, mas autenticação falhou (API key expirada, esperado na Fase 1).
+  - Arbitragem: Nenhuma chamada disparada (VD/CD abaixo do gatilho 0.0010), conforme esperado.
+  - Saida.txt: Vazio para arbitragens, mas contém snapshots e logs de inicialização.
+
+Commit:
+  - Mensagem: "Fase 1: comunicação ping/pong com coordenador, corrigido path e caminho dos workers"
+
+==============================
 

@@ -1,17 +1,19 @@
 "use strict";
-const { Worker, MessageChannel } = require("worker_threads");
+const { Worker, MessageChannel, workerData } = require("worker_threads");
+const fs = require('fs');
+const path = require('path');
 
 // Cores ANSI para logs
 const GREEN = "\x1b[32m";
 const BROWN = "\x1b[33m";
 const RESET = "\x1b[0m";
 
-// Matriz de operações
+// Matriz de operações fornecida
 const operacoes = [
   { exchange: "Bybit", symbol: "BTCUSDT", side: "sell", type: "limit", amount: "0.000", price: "95000", timeInForce: "IOC" },
   { exchange: "OKX", symbol: "BTCBRL", side: "buy", type: "market", amount: "0.0001", price: null, timeInForce: null },
-  { exchange: "Binance", symbol: "USDTBRL", side: "sell", type: "market", amount: "10", price: null, timeInForce: null },
-  ];
+  { exchange: "Binance", symbol: "USDTBRL", side: "sell", type: "market", amount: "10", price: null, timeInForce: null }
+];
 
 // Cria canais de comunicação
 const { port1: portToOKX, port2: portToCoordOKX } = new MessageChannel();
@@ -245,7 +247,7 @@ function handleWorkerMessage(msg, exchange) {
 // Inicializa workers
 function initializeBinance() {
   logMessage("Geral", "Inicializando Binance...");
-  const workerExecBinance = new Worker("./workerExecBinance.js", {
+  const workerExecBinance = new Worker("../workerExecBinance.js", {
     workerData: {
       apiKey: "nYZcNg7kBZfDAGuKpSOceL1h1YUMzSSwRGZut3KUy32KdpYPB0JKi1TV8liqvkVQ",
       apiSecret: "MC4CAQAwBQYDK2VwBCIEICtYrvoheU+SozG67W4syoWymQ7Z2bTkgvd+IDypO3AM",
@@ -257,7 +259,7 @@ function initializeBinance() {
 
 function initializeOKX() {
   logMessage("Geral", "Inicializando OKX...");
-  const workerExecOKX = new Worker("./workerExecOKX.js", {
+  const workerExecOKX = new Worker("../workerExecOKX.js", {
     workerData: {
       okxApiKey: "ac0bc774-1bad-4da2-83f9-55b8eebb697d",
       okxApiSecret: "4AD9EBBD4A8EEB6526F31B9527545ADC",
@@ -270,7 +272,7 @@ function initializeOKX() {
 
 function initializeBybit() {
   logMessage("Geral", "Inicializando Bybit...");
-  const workerExecBybit = new Worker("./workerExecBybit.js", {
+  const workerExecBybit = new Worker("../workerExecBybit.js", {
     workerData: {
       bybitApiKey: "b6uS8UAyMoRPImNnAU",
       bybitApiSecret: "47gHJE2gGonqxJlXz8SxOqqLhTDABAbJdaYB",
@@ -281,7 +283,6 @@ function initializeBybit() {
 }
 
 function startArbitrage() {
-  //logMessage("Geral", "Iniciando arbitragem. Matriz de operações:\n" + formatObject(operacoes));
   t0 = Date.now();
   aborted = false;
   completedOperations.clear();
@@ -335,6 +336,24 @@ function startArbitrage() {
     displayResultTable();
   }
 }
+
+// Adição para Fase 1: Comunicação com mainheap via MessageChannel
+const logFile = path.join(__dirname, '..', 'logs', 'saida.txt');
+function log(message) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}`;
+  fs.appendFileSync(logFile, `${logMessage}\n`);
+  console.log(logMessage);
+}
+log(`Matriz de operações carregada: ${JSON.stringify(operacoes.map(op => op.exchange + ':' + op.symbol))} <==================================`);
+const coordPort = workerData.port;
+coordPort.on('message', (msg) => {
+  if (msg.type === 'ping') {
+    coordPort.postMessage({ type: 'pong' });
+    log(`Ping recebido, pong enviado ao mainheap <==================================`);
+  }
+});
+log('Coordenador Fase 1 iniciado <==================================');
 
 // Inicia o processo com Binance
 initializeBinance();
