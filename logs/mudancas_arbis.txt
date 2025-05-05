@@ -38,3 +38,46 @@ Commit:
   - Mensagem: "Fase 1: comunicação ping/pong com coordenador, corrigido path e caminho dos workers"
 
 ==============================
+Data: 04/05/2025
+Fase: 2
+
+Arquivos modificados:
+  - fase2/mainheap_fase2.js
+  - fase2/coordenador_fase2.js
+
+Base:
+  - Backup fase2_no_arbitrage_log_20250504
+
+Mudanças:
+  - mainheap_fase2.js:
+    - Suprimida a impressão de mensagens `[Arbitragem] <timestamp> - VD: X, CD: Y` no console, comentando a linha correspondente na função `testaArbitragens`, para facilitar o acompanhamento dos logs.
+    - Adicionada lógica para enviar matrizes estáticas simuladas (`mockMatrix3` com 3 ordens e `mockMatrix2` com 2 ordens) ao coordenador após recebimento de pong.
+    - Implementada criação de diretório de logs (`C:\Users\Yaco\Desktop\Cryptos\ARBIS\logs`) e gravação de logs específicos da fase em `fase2.log`.
+    - Mantida a comunicação ping/pong com o coordenador via MessageChannel, com logs detalhados marcados por `<==================================`.
+  - coordenador_fase2.js:
+    - Adicionada lógica para confirmar recebimento das matrizes estáticas com mensagens do tipo `matrixReceived`, incluindo tempo de recebimento.
+    - Implementada resposta a mensagens ping com pong, com logs detalhados.
+    - Adicionados logs com marcador `<==================================` para rastreamento.
+
+Objetivo:
+  - Garantir que o coordenador receba corretamente as matrizes estáticas enviadas pelo mainheap_fase2.js, com confirmação via logs (Fase 2).
+
+Status:
+  - Comunicação ping/pong: Sucesso (logs confirmados em console, saida.txt e fase2.log).
+  - Envio e recebimento de matrizes:
+    - `mockMatrix3` (3 ordens) enviada e recebida em ~2ms, com logs confirmados.
+    - `mockMatrix2` (2 ordens) enviada e recebida em ~3ms, com logs confirmados.
+  - Workers de dados: Funcionando, coletando cotações (BTCUSDT, BTCBRL, USDTBRL), conforme esperado da Fase 1.
+  - WorkerExec:
+    - Binance: Conexão e autenticação OK.
+    - OKX: Conexão, autenticação e subscrição OK.
+    - Bybit: Conexão WebSocket OK, mas envio de ordens gerou erros (ex.: WebSocket not open, parâmetro inválido), a serem tratados na Fase 3.
+  - Arbitragem: Nenhuma chamada disparada (VD/CD abaixo do gatilho 0.0010), conforme esperado.
+  - Logs:
+    - Saida.txt: Contém snapshots de cotações e bests a cada 30s, além de logs de inicialização.
+    - Fase2.log: Contém logs detalhados de ping/pong, envio e recebimento de matrizes, com timestamps.
+
+Commit:
+  - Mensagem: "Fase 2: Coordenador recebendo matrizes estáticas corretamente, suprimida impressão de [Arbitragem] VD/CD"
+
+==============================
