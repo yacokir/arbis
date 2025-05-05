@@ -1,0 +1,382 @@
+[2025-05-04T18:33:24.395Z] MainHeap Fase 2 iniciado, ping enviado ao coordenador <==================================
+[2025-05-04T18:33:24.487Z] Coordenador Fase 2 iniciado <==================================
+[2025-05-04T18:33:24.492Z] Ping recebido, pong enviado ao mainheap <==================================
+[2025-05-04T18:33:24.494Z] Pong recebido do coordenador <==================================
+[2025-05-04T18:33:25.510Z] Enviada matriz simulada com 3 ordens: [{"exchange":"Bybit","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"OKX","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null},{"exchange":"Binance","symbol":"USDTBRL","side":"sell","type":"market","amount":"10","price":null,"timeInForce":null}] <==================================
+[2025-05-04T18:33:25.511Z] Matriz simulada recebida com 3 ordens: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T18:33:25.512Z] Executando arbitragem com matriz estática: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T18:33:25.515Z] Coordenador confirmou recebimento: Matriz com 3 ordens recebida em 2ms <==================================
+[2025-05-04T19:20:32.009Z] MainHeap Fase 2 iniciado, ping enviado ao coordenador <==================================
+[2025-05-04T19:20:32.081Z] Coordenador Fase 2 iniciado <==================================
+[2025-05-04T19:20:32.094Z] Ping recebido, pong enviado ao mainheap <==================================
+[2025-05-04T19:20:32.174Z] Pong recebido do coordenador <==================================
+[2025-05-04T19:20:33.187Z] Enviada matriz simulada com 3 ordens: [{"exchange":"Bybit","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"OKX","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null},{"exchange":" trattativaBinance","symbol":"USDTBRL","side":"sell","type":"market","amount":"10","price":null,"timeInForce":null}] <==================================
+[2025-05-04T19:20:33.187Z] Matriz simulada recebida com 3 ordens: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m" trattativaBinance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T19:20:33.188Z] Executando arbitragem com matriz estática: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m" trattativaBinance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T19:20:33.189Z] Coordenador confirmou recebimento: Matriz com 3 ordens recebida em 1ms <==================================
+[2025-05-04T19:20:35.179Z] Enviada matriz simulada com 2 ordens: [{"exchange":"Bybit","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"OKX","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null}] <==================================
+[2025-05-04T19:20:35.179Z] Matriz simulada recebida com 2 ordens: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T19:20:35.180Z] Executando arbitragem com matriz estática: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T19:20:35.180Z] Coordenador confirmou recebimento: Matriz com 2 ordens recebida em 2ms <==================================
+[2025-05-04T22:36:57.349Z] MainHeap Fase 2 iniciado, ping enviado ao coordenador <==================================
+[2025-05-04T22:36:57.500Z] Coordenador Fase 2 iniciado <==================================
+[2025-05-04T22:36:57.506Z] Pong recebido do coordenador <==================================
+[2025-05-04T22:36:57.506Z] Ping recebido, pong enviado ao mainheap <==================================
+[2025-05-04T22:36:58.540Z] Enviada matriz simulada com 3 ordens: [{"exchange":"Bybit","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"OKX","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null},{"exchange":"Binance","symbol":"USDTBRL","side":"sell","type":"market","amount":"10","price":null,"timeInForce":null}] <==================================
+[2025-05-04T22:36:58.542Z] Matriz simulada recebida com 3 ordens: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T22:36:58.544Z] Executando arbitragem com matriz estática: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T22:36:58.547Z] Coordenador confirmou recebimento: Matriz com 3 ordens recebida em 4ms <==================================
+[2025-05-04T22:37:00.551Z] Enviada matriz simulada com 2 ordens: [{"exchange":"Bybit","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"OKX","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null}] <==================================
+[2025-05-04T22:37:00.552Z] Matriz simulada recebida com 2 ordens: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T22:37:00.554Z] Executando arbitragem com matriz estática: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T22:37:00.558Z] Coordenador confirmou recebimento: Matriz com 2 ordens recebida em 3ms <==================================
+[2025-05-04T22:53:37.528Z] MainHeap Fase 2 iniciado, ping enviado ao coordenador <==================================
+[2025-05-04T22:53:37.694Z] Coordenador Fase 2 iniciado <==================================
+[2025-05-04T22:53:37.698Z] Ping recebido, pong enviado ao mainheap <==================================
+[2025-05-04T22:53:37.704Z] Pong recebido do coordenador <==================================
+[2025-05-04T22:53:38.705Z] Enviada matriz simulada com 3 ordens: [{"exchange":"Bybit","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"OKX","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null},{"exchange":"Binance","symbol":"USDTBRL","side":"sell","type":"market","amount":"10","price":null,"timeInForce":null}] <==================================
+[2025-05-04T22:53:38.705Z] Matriz simulada recebida com 3 ordens: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T22:53:38.707Z] Executando arbitragem com matriz estática: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T22:53:38.708Z] Coordenador confirmou recebimento: Matriz com 3 ordens recebida em 2ms <==================================
+[2025-05-04T22:53:40.715Z] Enviada matriz simulada com 2 ordens: [{"exchange":"Bybit","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"OKX","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null}] <==================================
+[2025-05-04T22:53:40.716Z] Matriz simulada recebida com 2 ordens: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T22:53:40.718Z] Executando arbitragem com matriz estática: [
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-04T22:53:40.720Z] Coordenador confirmou recebimento: Matriz com 2 ordens recebida em 3ms <==================================
