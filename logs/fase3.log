@@ -510,3 +510,329 @@
     "reason": "T1 Failed"
   }
 ] <==================================
+[2025-05-06T10:17:27.403Z] MainHeap Fase 3 iniciado, ping enviado ao coordenador <==================================
+[2025-05-06T10:17:27.482Z] Coordenador Fase 3 iniciado <==================================
+[2025-05-06T10:17:27.490Z] Ping recebido, pong enviado ao mainheap via parentPort <==================================
+[2025-05-06T10:17:27.530Z] Pong recebido do coordenador <==================================
+[2025-05-06T10:17:30.155Z] Worker OKX pronto. Estado: {"Binance":false,"OKX":true,"Bybit":false} <==================================
+[2025-05-06T10:17:30.158Z] Worker OKX pronto. Estado das conexões: {"Binance":false,"OKX":true,"Bybit":false} <==================================
+[2025-05-06T10:17:30.313Z] Worker Bybit pronto. Estado: {"Binance":false,"OKX":true,"Bybit":true} <==================================
+[2025-05-06T10:17:30.315Z] Worker Bybit pronto. Estado das conexões: {"Binance":false,"OKX":true,"Bybit":true} <==================================
+[2025-05-06T10:17:31.849Z] Worker Binance pronto. Estado: {"Binance":true,"OKX":true,"Bybit":true} <==================================
+[2025-05-06T10:17:31.852Z] Todos os workers prontos. Notificando mainheap via parentPort <==================================
+[2025-05-06T10:17:31.853Z] Worker Binance pronto. Estado das conexões: {"Binance":true,"OKX":true,"Bybit":true} <==================================
+[2025-05-06T10:17:31.855Z] Todos os workers prontos. Agendando envio da primeira matriz simulada (3 ordens) em 1s <==================================
+[2025-05-06T10:17:32.866Z] Executando setTimeout para enviar matriz simulada com 3 ordens <==================================
+[2025-05-06T10:17:32.868Z] Enviada matriz simulada com 3 ordens: [{"exchange":"OKX","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"Bybit","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null},{"exchange":"Binance","symbol":"USDTBRL","side":"sell","type":"market","amount":"10","price":null,"timeInForce":null}] <==================================
+[2025-05-06T10:17:32.869Z] Matriz dinâmica recebida com 3 ordens: [
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-06T10:17:32.871Z] Confirmando recebimento da matriz ao mainheap <==================================
+[2025-05-06T10:17:32.872Z] Coordenador confirmou recebimento: Matriz com 3 ordens recebida em 4ms <==================================
+[2025-05-06T10:17:33.246Z] Resultado | Enviando resultMatrix ao mainheap <==================================
+[2025-05-06T10:17:33.248Z] Tabela de resultados recebida do coordenador:
+[
+  {
+    "T": "T1",
+    "exchange": "OKX",
+    "symbol": "BTCUSDT",
+    "side": "sell",
+    "type": "limit",
+    "amount": "0",
+    "askPrice": "95000",
+    "execPrice": "---",
+    "tif": "IOC",
+    "result": "rejected",
+    "timeToStatus": 368,
+    "reason": "Parameter sz  error"
+  },
+  {
+    "T": "T2",
+    "exchange": "Bybit",
+    "symbol": "BTCBRL",
+    "side": "buy",
+    "type": "market",
+    "amount": "0.0001",
+    "askPrice": "---",
+    "execPrice": "---",
+    "tif": "---",
+    "result": "aborted",
+    "timeToStatus": 368,
+    "reason": "T1 Failed"
+  },
+  {
+    "T": "T3",
+    "exchange": "Binance",
+    "symbol": "USDTBRL",
+    "side": "sell",
+    "type": "market",
+    "amount": "10",
+    "askPrice": "---",
+    "execPrice": "---",
+    "tif": "---",
+    "result": "aborted",
+    "timeToStatus": 368,
+    "reason": "T1 Failed"
+  }
+] <==================================
+[2025-05-06T10:17:33.250Z] Resultado da primeira matriz recebido. Agendando segunda matriz simulada (2 ordens) em 60s <==================================
+[2025-05-06T10:18:33.263Z] Executando setTimeout para enviar matriz simulada com 2 ordens <==================================
+[2025-05-06T10:18:33.265Z] Enviada matriz simulada com 2 ordens: [{"exchange":"Binance","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"0","price":"95000","timeInForce":"IOC"},{"exchange":"Bybit","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null}] <==================================
+[2025-05-06T10:18:33.266Z] Matriz dinâmica recebida com 2 ordens: [
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"0"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-06T10:18:33.268Z] Confirmando recebimento da matriz ao mainheap <==================================
+[2025-05-06T10:18:33.268Z] Coordenador confirmou recebimento: Matriz com 2 ordens recebida em 3ms <==================================
+[2025-05-06T10:18:33.557Z] Resultado | Enviando resultMatrix ao mainheap <==================================
+[2025-05-06T10:18:33.559Z] Tabela de resultados recebida do coordenador:
+[
+  {
+    "T": "T1",
+    "exchange": "Binance",
+    "symbol": "BTCUSDT",
+    "side": "sell",
+    "type": "limit",
+    "amount": "0",
+    "askPrice": "95000",
+    "execPrice": "---",
+    "tif": "IOC",
+    "result": "rejected",
+    "timeToStatus": 284,
+    "reason": "Invalid quantity."
+  },
+  {
+    "T": "T2",
+    "exchange": "Bybit",
+    "symbol": "BTCBRL",
+    "side": "buy",
+    "type": "market",
+    "amount": "0.0001",
+    "askPrice": "---",
+    "execPrice": "---",
+    "tif": "---",
+    "result": "aborted",
+    "timeToStatus": 284,
+    "reason": "T1 Failed"
+  },
+  {
+    "T": "T3",
+    "exchange": "---",
+    "symbol": "---",
+    "side": "---",
+    "type": "---",
+    "amount": "---",
+    "askPrice": "---",
+    "execPrice": "---",
+    "tif": "---",
+    "result": "aborted",
+    "timeToStatus": 284,
+    "reason": "T1 Failed"
+  }
+] <==================================
+[2025-05-06T10:44:01.220Z] MainHeap Fase 3 iniciado, ping enviado ao coordenador <==================================
+[2025-05-06T10:44:01.305Z] Coordenador Fase 3 iniciado <==================================
+[2025-05-06T10:44:01.321Z] Ping recebido, pong enviado ao mainheap via parentPort <==================================
+[2025-05-06T10:44:01.335Z] Pong recebido do coordenador <==================================
+[2025-05-06T10:44:03.565Z] Worker Bybit pronto. Estado: {"Binance":false,"OKX":false,"Bybit":true} <==================================
+[2025-05-06T10:44:03.566Z] Worker Bybit pronto. Estado das conexões: {"Binance":false,"OKX":false,"Bybit":true} <==================================
+[2025-05-06T10:44:03.771Z] Worker OKX pronto. Estado: {"Binance":false,"OKX":true,"Bybit":true} <==================================
+[2025-05-06T10:44:03.772Z] Worker OKX pronto. Estado das conexões: {"Binance":false,"OKX":true,"Bybit":true} <==================================
+[2025-05-06T10:44:05.265Z] Worker Binance pronto. Estado: {"Binance":true,"OKX":true,"Bybit":true} <==================================
+[2025-05-06T10:44:05.267Z] Todos os workers prontos. Notificando mainheap via parentPort <==================================
+[2025-05-06T10:44:05.267Z] Worker Binance pronto. Estado das conexões: {"Binance":true,"OKX":true,"Bybit":true} <==================================
+[2025-05-06T10:44:05.269Z] Todos os workers prontos. Agendando envio da primeira matriz simulada (3 ordens) em 1s <==================================
+[2025-05-06T10:44:06.285Z] Executando setTimeout para enviar matriz simulada com 3 ordens <==================================
+[2025-05-06T10:44:06.286Z] Enviada matriz simulada com 3 ordens: [{"exchange":"Binance","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"x.0001","price":"95000","timeInForce":"IOC"},{"exchange":"Bybit","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null},{"exchange":"Binance","symbol":"USDTBRL","side":"sell","type":"market","amount":"10","price":null,"timeInForce":null}] <==================================
+[2025-05-06T10:44:06.286Z] Matriz dinâmica recebida com 3 ordens: [
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"x.0001"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"Bybit"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  },
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"USDTBRL"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"10"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-06T10:44:06.287Z] Confirmando recebimento da matriz ao mainheap <==================================
+[2025-05-06T10:44:06.288Z] Coordenador confirmou recebimento: Matriz com 3 ordens recebida em 2ms <==================================
+[2025-05-06T10:44:06.573Z] Resultado | Enviando resultMatrix ao mainheap <==================================
+[2025-05-06T10:44:06.574Z] Tabela de resultados recebida do coordenador:
+[
+  {
+    "T": "T1",
+    "exchange": "Binance",
+    "symbol": "BTCUSDT",
+    "side": "sell",
+    "type": "limit",
+    "amount": "x.0001",
+    "askPrice": "95000",
+    "execPrice": "---",
+    "tif": "IOC",
+    "result": "rejected",
+    "timeToStatus": 281,
+    "reason": "Illegal characters found in parameter 'quantity'; legal range is '^([0-9]{1,20})(\\.[0-9]{1,20})?$'."
+  },
+  {
+    "T": "T2",
+    "exchange": "Bybit",
+    "symbol": "BTCBRL",
+    "side": "buy",
+    "type": "market",
+    "amount": "0.0001",
+    "askPrice": "---",
+    "execPrice": "---",
+    "tif": "---",
+    "result": "aborted",
+    "timeToStatus": 281,
+    "reason": "T1 Failed"
+  },
+  {
+    "T": "T3",
+    "exchange": "Binance",
+    "symbol": "USDTBRL",
+    "side": "sell",
+    "type": "market",
+    "amount": "10",
+    "askPrice": "---",
+    "execPrice": "---",
+    "tif": "---",
+    "result": "aborted",
+    "timeToStatus": 281,
+    "reason": "T1 Failed"
+  }
+] <==================================
+[2025-05-06T10:44:06.574Z] Resultado da primeira matriz recebido. Agendando segunda matriz simulada (2 ordens) em 60s <==================================
+[2025-05-06T10:45:06.596Z] Executando setTimeout para enviar matriz simulada com 2 ordens <==================================
+[2025-05-06T10:45:06.598Z] Enviada matriz simulada com 2 ordens: [{"exchange":"Binance","symbol":"BTCUSDT","side":"sell","type":"limit","amount":"x.0001","price":"95000","timeInForce":"IOC"},{"exchange":"OKX","symbol":"BTCBRL","side":"buy","type":"market","amount":"0.0001","price":null,"timeInForce":null}] <==================================
+[2025-05-06T10:45:06.599Z] Matriz dinâmica recebida com 2 ordens: [
+  {
+    "exchange": [32m"Binance"[0m,
+    "symbol": [32m"BTCUSDT"[0m,
+    "side": [32m"sell"[0m,
+    "type": [32m"limit"[0m,
+    "amount": [32m"x.0001"[0m,
+    "price": [32m"95000"[0m,
+    "timeInForce": [32m"IOC"[0m
+  },
+  {
+    "exchange": [32m"OKX"[0m,
+    "symbol": [32m"BTCBRL"[0m,
+    "side": [32m"buy"[0m,
+    "type": [32m"market"[0m,
+    "amount": [32m"0.0001"[0m,
+    "price": null,
+    "timeInForce": null
+  }
+] <==================================
+[2025-05-06T10:45:06.600Z] Confirmando recebimento da matriz ao mainheap <==================================
+[2025-05-06T10:45:06.604Z] Coordenador confirmou recebimento: Matriz com 2 ordens recebida em 4ms <==================================
+[2025-05-06T10:45:06.888Z] Resultado | Enviando resultMatrix ao mainheap <==================================
+[2025-05-06T10:45:06.889Z] Tabela de resultados recebida do coordenador:
+[
+  {
+    "T": "T1",
+    "exchange": "Binance",
+    "symbol": "BTCUSDT",
+    "side": "sell",
+    "type": "limit",
+    "amount": "x.0001",
+    "askPrice": "95000",
+    "execPrice": "---",
+    "tif": "IOC",
+    "result": "rejected",
+    "timeToStatus": 284,
+    "reason": "Illegal characters found in parameter 'quantity'; legal range is '^([0-9]{1,20})(\\.[0-9]{1,20})?$'."
+  },
+  {
+    "T": "T2",
+    "exchange": "OKX",
+    "symbol": "BTCBRL",
+    "side": "buy",
+    "type": "market",
+    "amount": "0.0001",
+    "askPrice": "---",
+    "execPrice": "---",
+    "tif": "---",
+    "result": "aborted",
+    "timeToStatus": 284,
+    "reason": "T1 Failed"
+  },
+  {
+    "T": "T3",
+    "exchange": "---",
+    "symbol": "---",
+    "side": "---",
+    "type": "---",
+    "amount": "---",
+    "askPrice": "---",
+    "execPrice": "---",
+    "tif": "---",
+    "result": "aborted",
+    "timeToStatus": 284,
+    "reason": "T1 Failed"
+  }
+] <==================================
+[2025-05-06T11:46:35.478Z] Coordenador Fase 3 iniciado <==================================
+[2025-05-06T11:46:35.490Z] Ping recebido, pong enviado ao mainheap via parentPort <==================================

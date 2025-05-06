@@ -392,13 +392,13 @@ coordenador.on('exit', (code) => {
 });
 
 const mockMatrix3 = [
-  { exchange: 'Bybit', symbol: 'BTCUSDT', side: 'sell', type: 'limit', amount: '0', price: '95000', timeInForce: 'IOC' },
-  { exchange: 'OKX', symbol: 'BTCBRL', side: 'buy', type: 'market', amount: '0.0001', price: null, timeInForce: null },
+  { exchange: 'Binance', symbol: 'BTCUSDT', side: 'sell', type: 'limit', amount: 'x.0001', price: '95000', timeInForce: 'IOC' },
+  { exchange: 'Bybit', symbol: 'BTCBRL', side: 'buy', type: 'market', amount: '0.0001', price: null, timeInForce: null },
   { exchange: 'Binance', symbol: 'USDTBRL', side: 'sell', type: 'market', amount: '10', price: null, timeInForce: null }
 ];
 
 const mockMatrix2 = [
-  { exchange: 'Bybit', symbol: 'BTCUSDT', side: 'sell', type: 'limit', amount: '0', price: '95000', timeInForce: 'IOC' },
+  { exchange: 'Binance', symbol: 'BTCUSDT', side: 'sell', type: 'limit', amount: 'x.0001', price: '95000', timeInForce: 'IOC' },
   { exchange: 'OKX', symbol: 'BTCBRL', side: 'buy', type: 'market', amount: '0.0001', price: null, timeInForce: null }
 ];
 

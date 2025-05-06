@@ -1,7 +1,10 @@
+"use strict";
 const { Worker } = require('worker_threads');
 const fs = require('fs');
+const path = require('path');
 const yargs = require('yargs');
 const Heap = require('heap');
+
 const argv = yargs
   .command('$0 <criptoDaArbitragem> <dolarDaArbitragem> <moedaDaArbitragem>', 'Executa arbitragem com os dados fornecidos', (yargs) => {
     yargs
@@ -11,7 +14,8 @@ const argv = yargs
   })
   .help()
   .argv;
-const gatilho = 0.001;
+
+const gatilho = 0.0010;
 const valorMinimoArbitragem = 100;
 const cripto = argv.criptoDaArbitragem.toUpperCase();
 const dolar = argv.dolarDaArbitragem.toUpperCase();
@@ -21,31 +25,21 @@ const dateStr = `${String(startDate.getDate()).padStart(2, '0')}-${String(startD
 const arbLogFile = `Arbs${cripto}${dolar}${moeda}-${dateStr}.txt`;
 const csvHeader = "Time,ProfitTrigger,MinAmountUSD,PotentialProfitUSD,SIDE T1,EXCHANGE T1,BID T1,ASK T1,BID AMT T1,ASK AMT T1,SIDE T2,EXCHANGE T2,BID T2,ASK T2,BID AMT T2,ASK AMT T2,SIDE T3,EXCHANGE T3,BID T3,ASK T3,BID AMT T3,ASK AMT T3\n";
 if (!fs.existsSync(arbLogFile)) fs.writeFileSync(arbLogFile, csvHeader);
+
 const codigosFormaPares = [[cripto, dolar], [cripto, moeda], [dolar, moeda]];
 const exchanges = [
-  { exchange: 'Bybit', fees: 0.001, venderPode: true, comprarPode: true },
   { exchange: 'Binance', fees: 0.001, venderPode: true, comprarPode: true },
-  { exchange: 'Deribit', fees: 0.001, venderPode: true, comprarPode: true },
-  { exchange: 'bitpreco', fees: 0.001, venderPode: true, comprarPode: true },
+  { exchange: 'Bybit', fees: 0.001, venderPode: true, comprarPode: true },
   { exchange: 'OKX', fees: 0.001, venderPode: true, comprarPode: true }
 ];
+
 const cotacoes = {
-  Bybit: {
-    [cripto + dolar]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' },
-    [cripto + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' },
-    [dolar + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' }
-  },
   Binance: {
     [cripto + dolar]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' },
     [cripto + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' },
     [dolar + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' }
   },
-  Deribit: {
-    [cripto + dolar]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' },
-    [cripto + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' },
-    [dolar + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' }
-  },
-  bitpreco: {
+  Bybit: {
     [cripto + dolar]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' },
     [cripto + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' },
     [dolar + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' }
@@ -56,6 +50,7 @@ const cotacoes = {
     [dolar + moeda]: { bid: '0', bidAmount: '0', bidTime: 'Date.now()', ask: '9007199254740991', askAmount: '0', askTime: 'Date.now()' }
   }
 };
+
 const bests = {
   [cripto + dolar]: {
     "bid": { preco: 0, amount: 0, time: 'Date.now()', exchange: "" },
@@ -70,25 +65,33 @@ const bests = {
     "ask": { preco: Infinity, amount: 0, time: 'Date.now()', exchange: "" }
   }
 };
+
 const previousBests = {
   [cripto + dolar]: { bid: { preco: 0 }, ask: { preco: Infinity } },
   [cripto + moeda]: { bid: { preco: 0 }, ask: { preco: Infinity } },
   [dolar + moeda]: { bid: { preco: 0 }, ask: { preco: Infinity } }
 };
+
 const bidHeaps = {};
 const askHeaps = {};
 let isArbitragePaused = false;
+
 codigosFormaPares.forEach(([c1, c2]) => {
   const par = c1 + c2;
   bidHeaps[par] = new Heap((a, b) => b.preco - a.preco);
   askHeaps[par] = new Heap((a, b) => a.preco - b.preco);
 });
+
 function formatTime(date) {
   return date.toISOString().replace('T', ' ').slice(0, 19) + '.' + String(date.getMilliseconds()).padStart(3, '0');
 }
+
 function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, askTime) {
   let bidChanged = false;
   let askChanged = false;
+  let bestBid = bidHeaps[par].peek() || { preco: 0, amount: 0, time: formatTime(new Date()), exchange: "" };
+  let bestAsk = askHeaps[par].peek() || { preco: Infinity, amount: 0, time: formatTime(new Date()), exchange: "" };
+
   if (bid !== null && bid !== undefined) {
     const bidEntry = { preco: Number(bid), amount: Number(bidAmount), time: bidTime, exchange };
     let heapArray = bidHeaps[par].toArray();
@@ -100,7 +103,7 @@ function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, ask
     bidHeaps[par] = new Heap((a, b) => b.preco - a.preco);
     heapArray.filter(entry => entry.amount > 0).forEach(item => bidHeaps[par].push(item));
     
-    const bestBid = bidHeaps[par].peek() || { preco: 0, amount: 0, time: formatTime(new Date()), exchange: "" };
+    bestBid = bidHeaps[par].peek() || { preco: 0, amount: 0, time: formatTime(new Date()), exchange: "" };
     if (bests[par].bid.preco !== bestBid.preco || bests[par].bid.exchange !== bestBid.exchange) bidChanged = true;
     bests[par].bid = { 
       preco: bestBid.preco, 
@@ -120,7 +123,7 @@ function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, ask
     askHeaps[par] = new Heap((a, b) => a.preco - b.preco);
     heapArray.filter(entry => entry.amount > 0).forEach(item => askHeaps[par].push(item));
     
-    const bestAsk = askHeaps[par].peek() || { preco: Infinity, amount: 0, time: formatTime(new Date()), exchange: "" };
+    bestAsk = askHeaps[par].peek() || { preco: Infinity, amount: 0, time: formatTime(new Date()), exchange: "" };
     if (bests[par].ask.preco !== bestAsk.preco || bests[par].ask.exchange !== bestAsk.exchange) askChanged = true;
     bests[par].ask = { 
       preco: bestAsk.preco, 
@@ -129,8 +132,8 @@ function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, ask
       exchange: bestAsk.exchange 
     };
   }
-  const bestBid = bidHeaps[par].peek();
-  if (bestBid && (cotacoes[bestBid.exchange][par].bid !== String(bestBid.preco) || cotacoes[bestBid.exchange][par].bidAmount === '0')) {
+  if (bestBid.exchange && cotacoes[bestBid.exchange] && cotacoes[bestBid.exchange][par] && 
+      (cotacoes[bestBid.exchange][par].bid !== String(bestBid.preco) || cotacoes[bestBid.exchange][par].bidAmount === '0')) {
     bidHeaps[par] = new Heap((a, b) => b.preco - a.preco);
     exchanges.forEach(({ exchange }) => {
       const cotacao = cotacoes[exchange][par];
@@ -147,8 +150,8 @@ function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, ask
     };
     bidChanged = true;
   }
-  const bestAsk = askHeaps[par].peek();
-  if (bestAsk && (cotacoes[bestAsk.exchange][par].ask !== String(bestAsk.preco) || cotacoes[bestAsk.exchange][par].askAmount === '0')) {
+  if (bestAsk.exchange && cotacoes[bestAsk.exchange] && cotacoes[bestAsk.exchange][par] && 
+      (cotacoes[bestAsk.exchange][par].ask !== String(bestAsk.preco) || cotacoes[bestAsk.exchange][par].askAmount === '0')) {
     askHeaps[par] = new Heap((a, b) => a.preco - b.preco);
     exchanges.forEach(({ exchange }) => {
       const cotacao = cotacoes[exchange][par];
@@ -171,6 +174,7 @@ function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, ask
     testaArbitragens();
   }
 }
+
 function atribuirCotacaoExchange(exchange, par, bid = null, bidAmount = null, bidTime = null, ask = null, askAmount = null, askTime = null) {
   if (!cotacoes[exchange][par]) {
     cotacoes[exchange][par] = { bid: null, bidAmount: null, bidTime: null, ask: null, askAmount: null, askTime: null };
@@ -226,24 +230,35 @@ function atribuirCotacaoExchange(exchange, par, bid = null, bidAmount = null, bi
   }
   updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, askTime);
 }
+
 function inicializarWorkers(codigosFormaPares) {
   exchanges.forEach(({ exchange }) => {  
     codigosFormaPares.forEach((codigosDePar) => {
-      const worker = new Worker(`./worker${exchange}.js`, { workerData: { codigosDePar } });
-      worker.on('message', (mensagem) => {
-        const { exchange, par, bid, bidAmount, bidTime, ask, askAmount, askTime } = mensagem;
-        atribuirCotacaoExchange(exchange, par, bid, bidAmount, bidTime, ask, askAmount, askTime);
-      });
-      worker.on('error', (err) => console.error(`Erro no Worker para ${exchange} - ${codigosDePar}:`, err));
-      worker.on('exit', (code) => { if (code !== 0) console.error(`Worker para ${exchange} - ${codigosDePar} saiu com código ${code}`); });
+      const par = codigosDePar[0] + codigosDePar[1];
+      const workerPath = `../worker${exchange}.js`;
+      try {
+        if (fs.existsSync(path.resolve(__dirname, workerPath))) {
+          const worker = new Worker(workerPath, { workerData: { codigosDePar } });
+          worker.on('message', (mensagem) => {
+            const { exchange, par, bid, bidAmount, bidTime, ask, askAmount, askTime } = mensagem;
+            atribuirCotacaoExchange(exchange, par, bid, bidAmount, bidTime, ask, askAmount, askTime);
+          });
+          worker.on('error', (err) => console.error(`Erro no Worker para ${exchange} - ${par}: ${err.message}`));
+          worker.on('exit', (code) => { if (code !== 0) console.error(`Worker para ${exchange} - ${par} saiu com código ${code}`); });
+        } else {
+          console.error(`Arquivo ${workerPath} não encontrado para ${exchange} - ${par}`);
+        }
+      } catch (err) {
+        console.error(`Erro ao inicializar worker para ${exchange} - ${par}: ${err.message}`);
+      }
     });
   });
 }
+
 function testaArbitragens() {
   const time = formatTime(new Date());
   const vendeDomesticamente = (bests[cripto + moeda].bid.preco / (bests[dolar + moeda].ask.preco * bests[cripto + dolar].ask.preco) - 1).toFixed(5);
   const compraDomesticamente = (bests[cripto + dolar].bid.preco * bests[dolar + moeda].bid.preco / bests[cripto + moeda].ask.preco - 1).toFixed(5);
-  console.log(`[Arbitragem] ${time} - VD: ${vendeDomesticamente}, CD: ${compraDomesticamente}`);
   if (vendeDomesticamente > gatilho || compraDomesticamente > gatilho) {
     const separator = '==================== ARBITRAGEM DETECTADA ====================';
     const outputConsole = [];
@@ -253,7 +268,6 @@ function testaArbitragens() {
     const snapshotBests = JSON.stringify(bests, null, 2);
     outputConsole.push(separator);
     outputConsole.push(`${time} --- ${cripto} VD: ${vendeDomesticamente} CD: ${compraDomesticamente}`);
-    // Determinar o ProfitTrigger
     let profitTrigger = 0;
     if (vendeDomesticamente > gatilho && compraDomesticamente > gatilho) {
       profitTrigger = Math.max(Number(vendeDomesticamente), Number(compraDomesticamente));
@@ -266,8 +280,6 @@ function testaArbitragens() {
       outputConsole.push(`   SELL, ${bests[cripto + moeda].bid.exchange}, ${cripto + moeda}, LIMIT, Preço: ${bests[cripto + moeda].bid.preco}, Amount: ${bests[cripto + moeda].bid.amount}`);
       outputConsole.push(`   BUY, ${bests[dolar + moeda].ask.exchange}, ${dolar + moeda}, MARKET, Preço: ${bests[dolar + moeda].ask.preco}, Amount: ${bests[dolar + moeda].ask.amount}`);
       outputConsole.push(`   BUY, ${bests[cripto + dolar].ask.exchange}, ${cripto + dolar}, MARKET, Preço: ${bests[cripto + dolar].ask.preco}, Amount: ${bests[cripto + dolar].ask.amount}`);
-      
-      // Calcular MinAmountUSD para VD
       const t1AmountUSD = bests[cripto + moeda].bid.amount * bests[cripto + dolar].ask.preco || 0;
       const t2AmountUSD = bests[dolar + moeda].ask.amount || 0;
       const t3AmountUSD = bests[cripto + dolar].ask.amount * bests[cripto + dolar].ask.preco || 0;
@@ -280,8 +292,6 @@ function testaArbitragens() {
       outputConsole.push(`   BUY, ${bests[cripto + moeda].ask.exchange}, ${cripto + moeda}, LIMIT, Preço: ${bests[cripto + moeda].ask.preco}, Amount: ${bests[cripto + moeda].ask.amount}`);
       outputConsole.push(`   SELL, ${bests[dolar + moeda].bid.exchange}, ${dolar + moeda}, MARKET, Preço: ${bests[dolar + moeda].bid.preco}, Amount: ${bests[dolar + moeda].bid.amount}`);
       outputConsole.push(`   SELL, ${bests[cripto + dolar].bid.exchange}, ${cripto + dolar}, MARKET, Preço: ${bests[cripto + dolar].bid.preco}, Amount: ${bests[cripto + dolar].bid.amount}`);
-      
-      // Calcular MinAmountUSD para CD
       const t1AmountUSD = bests[cripto + moeda].ask.amount * bests[cripto + dolar].bid.preco || 0;
       const t2AmountUSD = bests[dolar + moeda].bid.amount || 0;
       const t3AmountUSD = bests[cripto + dolar].bid.amount * bests[cripto + dolar].bid.preco || 0;
@@ -290,7 +300,6 @@ function testaArbitragens() {
       const csvLine = `${time},${profitTrigger},${minAmountUSD},${potentialProfitUSD},BUY,${bests[cripto + moeda].ask.exchange},${bests[cripto + moeda].bid.preco},${bests[cripto + moeda].ask.preco},${bests[cripto + moeda].bid.amount},${bests[cripto + moeda].ask.amount},SELL,${bests[dolar + moeda].bid.exchange},${bests[dolar + moeda].bid.preco},${bests[dolar + moeda].ask.preco},${bests[dolar + moeda].bid.amount},${bests[dolar + moeda].ask.amount},SELL,${bests[cripto + dolar].bid.exchange},${bests[cripto + dolar].bid.preco},${bests[cripto + dolar].ask.preco},${bests[cripto + dolar].bid.amount},${bests[cripto + dolar].ask.amount}`;
       csvLines.push(csvLine);
     }
-    outputConsole.push(separator);
     outputConsole.forEach(line => console.log(line));
     if (csvLines.length > 0) {
       process.stdout.write('\x07');
@@ -310,18 +319,94 @@ function testaArbitragens() {
     }
   }
 }
+
 function registrarNoLog(output) {
   fs.appendFileSync('saida.txt', output, (err) => {
     if (err) console.error('Erro ao gravar em saida.txt:', err);
   });
 }
+
 inicializarWorkers(codigosFormaPares);
-function formatNumber(value, decimals) {
-  return Number(value).toFixed(decimals);
-}
+
 fs.writeFileSync('saida.txt', '', (err) => {
   if (err) console.error('Erro ao inicializar saida.txt:', err);
 });
+
+const logFile = path.join(__dirname, '..', 'saida.txt');
+const phaseLogDir = 'C:\\Users\\Yaco\\Desktop\\Cryptos\\ARBIS\\logs';
+const phaseLogFile = path.join(phaseLogDir, 'fase4.log');
+if (!fs.existsSync(phaseLogDir)) {
+  fs.mkdirSync(phaseLogDir, { recursive: true });
+}
+
+function log(message, phaseLog = false) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}`;
+  fs.appendFileSync(logFile, `${logMessage}\n`);
+  if (phaseLog) {
+    fs.appendFileSync(phaseLogFile, `${logMessage}\n`);
+  }
+  console.log(logMessage);
+}
+
+const coordenador = new Worker('./coordenador_fase4.js');
+let secondMatrixSent = false;
+let conexoesProntas = { Binance: false, OKX: false, Bybit: false };
+
+coordenador.on('message', (msg) => {
+  if (msg.type === 'pong') {
+    log(`Pong recebido do coordenador <==================================`, true);
+  } else if (msg.type === 'matrixReceived') {
+    log(`Coordenador confirmou recebimento: ${msg.message} <==================================`, true);
+  } else if (msg.type === 'arbitrageResult') {
+    log(`Tabela de resultados recebida do coordenador:\n${JSON.stringify(msg.resultMatrix, null, 2)} <==================================`, true);
+    if (!secondMatrixSent) {
+      secondMatrixSent = true;
+      log(`Resultado da primeira matriz recebido. Agendando segunda matriz simulada (2 ordens) em 60s <==================================`, true);
+      setTimeout(() => {
+        log(`Executando setTimeout para enviar matriz simulada com 2 ordens <==================================`, true);
+        coordenador.postMessage({ type: 'executeArbitrage', operacoes: mockMatrix2, t0: Date.now() });
+        log(`Enviada matriz simulada com 2 ordens: ${JSON.stringify(mockMatrix2)} <==================================`, true);
+      }, 60000);
+    }
+  } else if (msg.type === 'conexoesProntas') {
+    conexoesProntas[msg.exchange] = true;
+    log(`Worker ${msg.exchange} pronto. Estado das conexões: ${JSON.stringify(conexoesProntas)} <==================================`, true);
+    if (Object.values(conexoesProntas).every(p => p)) {
+      log(`Todos os workers prontos. Iniciando testagem de arbitragens <==================================`, true);
+      // Testagem de arbitragens já é acionada pelo fluxo de cotações reais dos workers de dados
+      log(`Agendando envio da primeira matriz simulada (3 ordens) in 5s após início da testagem <==================================`, true);
+      setTimeout(() => {
+        log(`Executando setTimeout para enviar matriz simulada com 3 ordens <==================================`, true);
+        coordenador.postMessage({ type: 'executeArbitrage', operacoes: mockMatrix3, t0: Date.now() });
+        log(`Enviada matriz simulada com 3 ordens: ${JSON.stringify(mockMatrix3)} <==================================`, true);
+      }, 5000);
+    }
+  }
+});
+
+coordenador.on('error', (err) => {
+  log(`Erro no coordenador: ${err.message} <==================================`, true);
+});
+
+coordenador.on('exit', (code) => {
+  log(`Coordenador terminou com código ${code} <==================================`, true);
+});
+
+const mockMatrix3 = [
+  { exchange: 'Bybit', symbol: 'BTCUSDT', side: 'sell', type: 'limit', amount: '0', price: '95000', timeInForce: 'IOC' },
+  { exchange: 'OKX', symbol: 'BTCBRL', side: 'buy', type: 'market', amount: '0.0001', price: null, timeInForce: null },
+  { exchange: 'Binance', symbol: 'USDTBRL', side: 'sell', type: 'market', amount: '10', price: null, timeInForce: null }
+];
+
+const mockMatrix2 = [
+  { exchange: 'Bybit', symbol: 'BTCUSDT', side: 'sell', type: 'limit', amount: '0', price: '95000', timeInForce: 'IOC' },
+  { exchange: 'OKX', symbol: 'BTCBRL', side: 'buy', type: 'market', amount: '0.0001', price: null, timeInForce: null }
+];
+
+coordenador.postMessage({ type: 'ping' });
+log('MainHeap Fase 4 iniciado, ping enviado ao coordenador <==================================', true);
+
 setInterval(() => {
   const time = formatTime(new Date());
   console.log(`--- ${time} ---`);
@@ -336,4 +421,4 @@ setInterval(() => {
     '===================='
   ].join('\n') + '\n';
   registrarNoLog(snapshotOutput);
-}, 30000);   
+}, 30000);
