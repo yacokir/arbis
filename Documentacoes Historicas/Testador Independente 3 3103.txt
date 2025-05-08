@@ -1,0 +1,683 @@
+Leia esta doc e carregue os codigos do final.  Me fala brevemente o que vc entendeu do sistema e se entendeu os codigos. 
+
+Testador Independente. Estado inicial, data 28/03/2025.
+Objetivo Geral do Modulo
+Estamos desenvolvendo um sistema para detecao e execução de arbitragens triangulares de cripto ativos em tempo real. O sistema está baseado em Workers threads para node.js e se compõe de de vários módulos. Nesta sequencia de chats estamos desenvolvendo o modulo que sera o encarregado de coordenar o envio/execução das ordens da arbitragem.
+Este modulo se chama testadorIndependente porque só vai elaborar e validar um código que apenas testará a estrutura e a sequencia logica da execução das arbitragens. Depois ele sera finalizado como um novo worker que sera integrado ao sistema geral.
+A princípio, o sistema é dividido em dois workerthreads separados: um para gerenciar conexões WebSocket e outro para executar trades. O sistema prevê a realização das arbitragens operando em entre 6 e 10 exchanges. Cada worker terá que manejar as operações de conexão e postagem de operações com todas estas exchanges. No momento atual estamos trabalhando apenas com duas exchanges, Bybit e OKX. Eventualmente, no futuro, o ws de trades sera dividido em vários, correspondendo um worker para cada Exchange.
+Esta documencacao ‘cresce’ conforme o modulo vai sendo desenvolvido. Desta maneira vai sendo relatado cronologicamente o desenvolvimento, os problemas encontrados, as decisões tomadas, etc. e, para finalizar, os próximos passos a seguir e os scripts dos Workers no estado atual de desenvolvimento. 
+Arquitetura (Dois Workers)
+Worker de Conexoes: 
+Mantem WebSockets ativos (Bybit: Trade e Order; OKX: Privado).
+Envia pings (Bybit: a cada 20s; OKX: a cada 15s) e gerencia reconexoes apos 5s de falha.
+Publica dados de status para o Worker de Trades via MessageChannel.
+Atualmente configurado para logar ordens ouvidas apos autenticacao e subscricao.
+Worker de Trades: 
+Planejado para: 
+Ficar ocioso ate ser ativado pelo main.
+Executar ordens com base na matriz operacoes, onde T1 e postada e aguarda preenchimento, e T2 e T3 sao disparadas simultaneamente apos T1 ser preenchida.
+Usar o Worker de Conexoes como proxy para postar ordens via MessageChannel.
+Verificar o resultado da postagem de T2 e T3 (aceitacao pelo servidor) e logar mensagens completas recebidas.
+Implementar timeout de 3 segundos por ordem, sem retry.
+Status: Ainda nao implementado na documentacao original, mas agora detalhado com base nas discussoes.
+Razoes da Separacao: 
+Isolamento de carga para evitar bloqueios no event loop.
+Resiliencia contra falhas (ex.: crash em uma exchange nao derruba tudo).
+Escalabilidade para suportar mais instancias de trades no futuro.
+Comunicacao: 
+Usa worker_threads com MessageChannel (portToTrades e portToMain) para baixa latencia entre os workers.
+O Worker de Conexoes ja cria o canal e passa uma porta ao main.
+O Worker de Trades envia ordens ao Worker de Conexoes via portToTrades e recebe status de volta, com todas as mensagens logadas integralmente para analise.
+Estrutura Geral
+Matriz de Operacoes: 
+Define as ordens (ex.: T1: comprar BTC em OKX, T2: vender USDT em Bybit, T3: vender BTC em Bybit).
+Particularidade: Na OKX, T1 usa ordType: 'ioc' (ignora type: 'limit'), enquanto Bybit usa type e timeInForce separadamente. T2 e T3, geralmente market, nao requerem timeInForce.
+Exemplo:
+    const operacoes = [
+      { exchange: 'OKX', par: 'BTC-USDT', side: 'buy', type: 'limit', amount: '0.0001', price: '82300', timeInForce: 'IOC', orderTag: 'T1' },
+      { exchange: 'Bybit', par: 'BTCBRL', side: 'Sell', type: 'limit', amount: '0.0001', price: '484000', timeInForce: null, orderTag: 'T2' },
+      { exchange: 'Bybit', par: 'USDTBRL', side: 'Buy', type: 'limit', amount: '10', price: '5.800', timeInForce: null, orderTag: 'T3' }
+Matriz de Exchanges: 
+Contem configuracoes e funcoes especificas (ex.: URLs WebSocket, chaves API).
+Atualmente configurada para Bybit e OKX no workerConexoes.js.
+Estrutura deve ser modular para escalar ate 7+ exchanges.
+WebSockets: 
+Bybit: 
+Trade (wss://stream.bybit.com/v5/trade): Para postagem de ordens (ainda nao implementado no Worker de Trades).
+Order (wss://stream.bybit.com/v5/private): Para status de ordens (topic: 'order').
+Autenticacao com apiKey, expires (timestamp + 10s) e HMAC-SHA256 de GET/realtime${expires}.
+OKX: 
+Privado (wss://ws.okx.com:8443/ws/v5/private): Para postagem e status (channel: 'orders').
+Autenticacao com apiKey, passphrase, timestamp e HMAC-SHA256 de timestamp + GET/users/self/verify.
+Componentes Principais
+1. Inicializacao das Conexoes: 
+Funcao inicializarConexoes() autentica e subscreve os WebSockets.
+Usa Promise.all para garantir que todas as conexoes estejam prontas.
+Atualmente logs mostram apenas conexao, autenticacao, subscricao, pings e ordens ouvidas.
+Em producao, o main abre todas as conexoes (trades, orders e publicas como orderbook).
+2. Postagem de Ordens: 
+Planejado: Bybit usara op: 'order.create' via tradeWs; OKX usara op: 'order' via wsTrade.
+T1 e postada e aguarda 'Filled'; T2 e T3 sao disparadas juntas apos T1, geralmente como market orders.
+Resultado da postagem (OK ou erro) e logado.
+3. Verificacao de Status: 
+Bybit: Escuta 'order' e verifica orderStatus: 'Filled'.
+OKX: Escuta 'orders' e verifica state: 'filled'.
+Timeout de 3s por ordem, sem retry. Se T1 nao for preenchida, para e avisa; se T2 ou T3 falharem, loga sem cancelar.
+Todas as mensagens recebidas sao logadas integralmente com tempo transcorrido desde T1.
+4. Fluxo de Execucao: 
+Worker de Conexoes sinaliza prontidao ao main via parentPort.postMessage({ type: 'conexoesProntas' }).
+Worker de Trades executara as ordens: 
+Para testes, usa matriz operacoes no inicio e dispara apos conexoes prontas.
+Em producao, espera { type: 'start', operacoes } do main.
+Posta T1, verifica status, dispara T2 e T3 simultaneamente se T1 for 'Filled'.
+Definicoes de T1, T2 e T3
+T1: Sempre LIMIT IOC (executa ou cancela imediatamente).
+T2/T3: Geralmente MARKET, mas podem ser LIMIT, dependendo da estrategia.
+Proposito: T1 inicia a arbitragem com preco controlado; T2/T3 completam o ciclo, disparadas juntas apos T1.
+Consideracoes Finais
+Testes: 
+O Worker de Conexoes foi validado: conecta, autentica e escuta ordens enviadas pela plataforma web em Bybit e OKX.
+Logs foram ajustados para mostrar apenas eventos principais e ordens ouvidas.
+Evolucao: 
+Proximo passo: Implementar o Worker de Trades para usar o Worker de Conexoes como proxy via MessageChannel.
+Definir formato exato das mensagens do MessageChannel com base nos logs completos.
+
+--- ATUALIZAÇÕES E PROGRESSOS ---
+
+[Adicionado em 30/03/2025]
+
+**Explicação do Tema Geral**
+Você me passou dois códigos funcionais (testerbybt1t2.js para Bybit e conectaOkxTradesePostaT.js para OKX) que demonstram como conectar, autenticar, postar ordens e receber atualizações nas respectivas exchanges. Esses códigos servem como referência para entender os formatos e fluxos reais das APIs de WebSocket das exchanges, e eles são a base para ajustar o workerConexoes.js e garantir que ele seja compatível com ambas as exchanges no sistema de arbitragem triangular que estamos desenvolvendo. Aqui está o que entendi do tema:
+
+Bybit (testerbybt1t2.js)
+Estrutura: Usa dois WebSockets distintos:
+tradeWs (wss://stream.bybit.com/v5/trade): Para envio de ordens (op: 'order.create').
+orderWs (wss://stream.bybit.com/v5/private): Para monitoramento de status (tópico order).
+Autenticação: Ambos os WebSockets usam apiKey, expires (timestamp + 10s), e uma assinatura HMAC-SHA256 baseada em GET/realtime${expires} com apiSecret.
+Fluxo:
+Conecta e autentica os dois WebSockets.
+Após autenticação no tradeWs, posta T1 (LIMIT IOC, ex.: BUY BTCUSDT, 0.0001, $83000).
+O orderWs monitora o status via tópico order.
+Se T1 atingir orderStatus: 'Filled', dispara T2 (MARKET, SELL BTCUSDT, 0.0001).
+Se T1 for cancelada ou não preenchida em 5s, loga o motivo e encerra.
+Respostas:
+tradeWs: Confirma o envio com orderId e retCode: 0 (sucesso) ou erro.
+orderWs: Atualiza com orderStatus (ex.: Filled, Cancelled) e detalhes como rejectReason.
+Reconexão: Tenta reconectar após 5s se desconectado.
+Logs: Incluem tempos relativos desde o início (new Date() - horaInicial) para rastreamento.
+
+OKX (conectaOkxTradesePostaT.js)
+Estrutura: Usa um único WebSocket (wss://ws.okx.com:8443/ws/v5/private) para envio e atualizações.
+Autenticação: Usa apiKey, passphrase, timestamp, e assinatura HMAC-SHA256 com GET/users/self/verify.
+Fluxo:
+Conecta e autentica o WebSocket.
+Subscreve o canal orders para receber atualizações.
+Envia uma ordem T1 (LIMIT IOC, ex.: BUY BTC-USDT, 0.00001, $82300) via op: 'order'.
+Recebe confirmação de envio e atualizações de status (state: live, filled, canceled) no mesmo WebSocket.
+Ping/Pong: Envia ping a cada 25s para manter a conexão ativa.
+Respostas:
+Confirmação de envio: Retorna ordId com code: '0' (sucesso).
+Atualizações: Canal orders traz detalhes como state, px, sz, e cancelSource.
+Reconexão: Tenta reconectar após 5s se desconectado.
+ID Único: Usa um formato customizado (T1hhmmssSSS) para identificar ordens.
+
+Relevância para o Sistema
+Esses códigos mostram como as exchanges operam na prática, destacando:
+Diferenças nas APIs:
+Bybit separa envio e atualização em dois WebSockets, enquanto OKX usa um único com canais distintos.
+Formatos de ordens diferem (Bybit: orderType e timeInForce; OKX: ordType como ioc).
+Fluxo de Arbitragem: T1 deve ser preenchida antes de T2/T3, com monitoramento de status em tempo real.
+Base para workerConexoes.js: Precisa suportar múltiplos WebSockets (Bybit) e canal único (OKX), com parsers específicos para traduzir respostas em status internos (accepted, filled, etc.).
+
+**1. Progresso no Desenvolvimento**
+Desde a documentação original (28/03/2025), o sistema avançou com a implementação completa dos dois workers e um script principal para testes, refletidos nos códigos mainTester.js, workerConexoes.js e workerTrades.js. Esses códigos representam o estado atual do desenvolvimento e foram testados com uma conexão real à OKX, enquanto a integração com a Bybit ainda está pendente. Abaixo, detalho as mudanças e os progressos realizados:
+
+1. Implementação do MainTester.js:
+   - O script principal (mainTester.js) foi criado para inicializar os dois workers (conexoesWorker e tradesWorker) e gerenciar a comunicação entre eles via MessageChannel.
+   - Ele passa credenciais da OKX ao Worker de Conexões via workerData e inicializa os workers com portas específicas do MessageChannel (portToTrades e portToMain).
+   - Quando o Worker de Conexões sinaliza 'conexoesProntas', o mainTester envia uma matriz de operações ao Worker de Trades para iniciar a arbitragem, contendo ordens T1, T2 e T3 (atualmente todas em OKX para testes).
+
+2. Worker de Conexões (workerConexoes.js):
+   - Implementada conexão WebSocket real com a OKX, incluindo autenticação via HMAC-SHA256 e inscrição no canal 'orders'.
+   - Introduzida uma estrutura modular com a matriz 'exchanges', atualmente configurada apenas para OKX, mas preparada para expansão (ex.: Bybit).
+   - Funções específicas foram adicionadas: formatOrder para transformar ordens genéricas em formatos específicos da exchange, e parseStatus para mapear status nativos (ex.: 'filled', 'canceled') em status internos padronizados (accepted, rejected, filled, cancelled).
+   - Logs foram aprimorados com cores ANSI e timestamps absolutos para melhor rastreamento.
+   - Gerenciamento de pings (a cada 25s) e reconexão automática (após 5s) foram implementados.
+
+3. Worker de Trades (workerTrades.js):
+   - Totalmente implementado para gerenciar a lógica de arbitragem com base na matriz de operações recebida do main.
+   - Executa T1 como LIMIT IOC e aguarda seu preenchimento (status 'filled') antes de disparar T2 e T3 simultaneamente. Inclui timeout de 3s para T1, com parada da arbitragem em caso de falha.
+   - Usa portToTrades para enviar ordens ao Worker de Conexões e processa respostas (orderStatus) para decidir os próximos passos.
+   - Logs detalhados com tempos relativos (desde T1) e absolutos foram adicionados para monitoramento.
+
+4. Observação sobre Sincronia e Ordem dos Eventos:
+   Durante os testes com os códigos atuais, foi identificado um comportamento nos logs que exige atenção para produção:
+   - Problema Observado: Os logs do terminal mostram "Recebida ordem" (workerConexoes) antes de "Postando ordem T1" (workerTrades), sugerindo uma inversão de ordem. Porém, os timestamps absolutos confirmam que o envio ocorre antes da recepção (ex.: 1743186211001 vs. 1743186211002).
+   - Causa: Isso ocorre devido à natureza assíncrona do console.log e à concorrência entre threads no Node.js, sendo apenas uma questão visual nos logs, sem impacto na lógica funcional (envio ? recepção ? processamento está correto).
+   - Implicações para Produção:
+     - Latência: Em cenários reais com WebSockets, a ordem dos eventos deve ser rigorosa para evitar falhas como ordens duplicadas ou perda de sincronia.
+     - Eficiência: Atrasos na percepção de eventos podem reduzir a janela de arbitragem em mercados voláteis.
+     - Confiabilidade: O sistema deve garantir que ações só ocorram após confirmações, evitando decisões baseadas em respostas "futuras" ou atrasadas.
+   - Recomendações:
+     - Adicionar validações explícitas no Worker de Trades para só prosseguir após confirmações recebidas (já implementado parcialmente com a espera por 'filled' em T1).
+     - No Worker de Conexões, ignorar mensagens duplicadas ou fora de ordem (a implementar).
+     - Usar IDs de ordens correlacionados e estados internos para rastrear a sequência real, além de ajustar timeouts conforme latências de rede das exchanges.
+
+Os códigos atuais refletem esses avanços e estão funcionais para OKX, com a base estabelecida para integrar Bybit e outras exchanges no futuro. O próximo passo é validar o fluxo completo com simulações mais robustas antes de expandir para WebSockets reais em múltiplas exchanges.
+
+**2. Integração de Exemplos Reais das Exchanges Bybit e OKX**
+
+Descrição do Progresso:
+Para alinhar o desenvolvimento do sistema com as APIs reais das exchanges, foram fornecidos dois códigos funcionais: testerbybt1t2.js (Bybit) e conectaOkxTradesePostaT.js (OKX). Esses códigos demonstram a conexão, autenticação, postagem de ordens e monitoramento de status nas respectivas plataformas, servindo como referência para ajustar o workerConexoes.js e validar a lógica planejada no workerTrades.js. Abaixo, detalho as características implementadas e como elas impactam o projeto:
+
+- Bybit (testerbybt1t2.js):
+  - Estrutura: Utiliza dois WebSockets:
+    - tradeWs (wss://stream.bybit.com/v5/trade): Envio de ordens via op: 'order.create'.
+    - orderWs (wss://stream.bybit.com/v5/private): Atualizações via tópico order.
+  - Autenticação: Ambos autenticam com apiKey, expires (timestamp + 10s), e HMAC-SHA256 (GET/realtime${expires}).
+  - Fluxo:
+    1. Após autenticação no tradeWs, envia T1 (LIMIT IOC, BUY BTCUSDT, 0.0001, $83000).
+    2. O orderWs verifica o status; se Filled, dispara T2 (MARKET, SELL BTCUSDT, 0.0001).
+    3. Timeout de 5s para T1, com parada se não preenchida.
+  - Respostas: tradeWs retorna orderId e retCode; orderWs atualiza orderStatus (ex.: Cancelled, motivo EC_NoImmediateQtyToFill).
+  - Reconexão: 5s após desconexão.
+
+- OKX (conectaOkxTradesePostaT.js):
+  - Estrutura: Um único WebSocket (wss://ws.okx.com:8443/ws/v5/private) para envio (op: 'order') e atualizações (canal orders).
+  - Autenticação: Usa apiKey, passphrase, timestamp, e HMAC-SHA256 (GET/users/self/verify).
+  - Fluxo:
+    1. Autentica e subscreve o canal orders.
+    2. Envia T1 (LIMIT IOC, BUY BTC-USDT, 0.00001, $82300).
+    3. Recebe confirmação e atualizações (state: live ? canceled, motivo cancelSource: '14').
+  - Ping: Envia ping a cada 25s.
+  - Reconexão: 5s após desconexão.
+
+- Impacto no Sistema:
+  - O workerConexoes.js foi atualizado para suportar OKX com um WebSocket único (autenticação, envio e monitoramento), mas precisa ser expandido para Bybit com dois WebSockets, mantendo a matriz exchanges modular.
+  - A função formatOrder deve adaptar ordens genéricas da matriz de operações para os formatos específicos (Bybit: orderType/timeInForce; OKX: ordType).
+  - O parseStatus já mapeia status nativos para internos (ex.: OKX state: 'filled' ? filled; Bybit orderStatus: 'Filled' ? filled), mas deve ser testado com Bybit.
+  - O fluxo T1 ? T2/T3 do workerTrades.js é compatível, but o timeout de 3s pode precisar de ajuste com base em latências reais (ex.: 5s nos testes).
+
+- Observações:
+  - Os printouts mostram T1 sendo cancelada em ambas as exchanges (Bybit: preço fora do mercado; OKX: IOC não preenchida), indicando a necessidade de ajustar preços na matriz de operações para testes reais.
+  - A estrutura modular do workerConexoes.js está alinhada, mas a integração de Bybit exige adicionar um segundo WebSocket e gerenciar suas respostas separadamente.
+
+**3. Diferenças de Estrutura de WebSockets e Canais entre Exchanges**
+
+Descrição do Progresso:
+Os códigos reais fornecidos para Bybit (testerbybt1t2.js) e OKX (conectaOkxTradesePostaT.js) revelam uma diferença fundamental na forma como as exchanges gerenciam WebSockets e canais, um aspecto crítico para o desenvolvimento escalável do workerConexoes.js. Essas variações impactam diretamente a arquitetura do sistema e serão um desafio recorrente à medida que novas exchanges forem adicionadas (meta: até 6 ou 7). Abaixo, destaco as diferenças e a estratégia atual:
+
+- Bybit:
+  - Estrutura: Usa dois WebSockets separados:
+    - wss://stream.bybit.com/v5/trade: Envio de ordens (op: 'order.create').
+    - wss://stream.bybit.com/v5/private: Atualizações de status (tópico order).
+  - Implicação: Requer gerenciar duas conexões distintas por exchange, com autenticação e reconexão independentes, aumentando a complexidade da lógica no workerConexoes.js.
+
+- OKX:
+  - Estrutura: Usa um único WebSocket (wss://ws.okx.com:8443/ws/v5/private) para envio (op: 'order') e atualizações (canal orders).
+  - Implicação: Simplifica a conexão, mas exige parsing preciso para diferenciar mensagens de envio e status no mesmo fluxo, além de subscrição explícita a canais.
+
+- Desafio Futuro:
+  - Cada exchange pode adotar uma abordagem diferente (múltiplos WebSockets, canais únicos, ou híbridos), afetando:
+    - Modularidade: A matriz exchanges no workerConexoes.js precisa de adaptadores específicos para cada formato.
+    - Sincronia: Garantir que envio e atualização sejam processados na ordem correta, especialmente com múltiplos WebSockets (ex.: Bybit).
+    - Escalabilidade: Adicionar novas exchanges demandará análise individual de suas APIs para ajustar autenticação, formatos de ordem e parsing de status.
+  - Isso será um problema frequente, pois a expansão para 6-7 exchanges amplificará a diversidade estrutural, exigindo uma base robusta e flexível desde já.
+
+- Estratégia Atual:
+  - Foco em OKX: Por enquanto, o desenvolvimento está concentrado na OKX, que já foi implementada no workerConexoes.js com um WebSocket único e funcional (autenticação, envio de ordens, e monitoramento via canal orders). Isso permite validar a lógica básica do sistema (T1 ? T2/T3) em uma exchange real antes de expandir.
+  - Abordagem Individual: Cada exchange será resolvida separadamente:
+    1. Implementar e testar sua conexão no workerConexoes.js.
+    2. Ajustar formatOrder e parseStatus para seus formatos e status nativos.
+    3. Integrar ao fluxo geral do workerTrades.js após validação.
+  - Justificativa: Essa abordagem incremental reduz riscos, permitindo ajustes pontuais (ex.: timeouts, latências) e garantindo estabilidade antes da integração total.
+
+- Próximos Passos:
+  - Finalizar a integração de Bybit no workerConexoes.js, adicionando suporte aos dois WebSockets e testando o fluxo completo.
+  - Documentar cada nova exchange à medida que for incorporada, destacando suas particularidades estruturais.
+
+**4. Ajustes no Tempo Transcorrido e Tratamento de Ping/Pong**
+
+Descrição do Progresso:
+Durante os testes do sistema, foram identificados dois problemas nos códigos vigentes (workerConexoes.js e workerTrades.js): o cálculo do tempo transcorrido estava desalinhado com o fluxo de trades, e o tratamento do "pong" da OKX causava erros de parsing. Esses pontos foram analisados e corrigidos para alinhar o comportamento com os requisitos da arbitragem e a documentação oficial da OKX WebSocket API v5. Detalhes abaixo:
+
+- Tempo Transcorrido Errado:
+  - Problema Observado: No workerConexoes.js, os logs exibiam tempo transcorrido ([t=...ms]) calculado desde o início do worker (startTime = Date.now()), como:
+
+[workerConexoes] [t=1140ms] [abs=1743343261663] Conectado ao WebSocket OKX. [workerConexoes] [t=2541ms] [abs=1743343263064] Recebida ordem do trades:
+Isso não reflete o fluxo de arbitragem, onde o tempo relativo (t=0) deve começar ao enviar a primeira ordem (T1) no canal de trades, não no início da conexão.
+- Correção: 
+- Removido o cálculo de elapsedTime e a exibição de [t=...ms] no workerConexoes.js. Agora, ele usa apenas timestamps absolutos ([abs=...]) para logs, focando em rastreamento geral sem referência a um tempo relativo.
+- No workerTrades.js, o tempo transcorrido ([t=...ms]) já está correto, com t1StartTime = Date.now() definido ao postar T1, refletindo o início do ciclo de arbitragem. Esse comportamento foi mantido.
+- Impacto: Garante que o tempo relativo seja específico ao canal de trades, facilitando a análise da latência entre o envio de T1 e as respostas subsequentes (ex.: preenchimento ou timeout).
+
+- Ping/Pong com Erro de Parsing:
+- Problema Observado: No workerConexoes.js, o envio de "ping" funcionava, mas o tratamento do "pong" falhava, resultando em:
+ 
+[workerConexoes] [t=26150ms] [abs=1743343286673] Ping enviado. SyntaxError [Error]: Unexpected token 'p', "pong" is not valid JSON
+O erro ocorria porque o cheque if (data === 'pong') estava após o JSON.parse, mas a OKX responde com a string pura "pong", que não é um objeto JSON válido.
+- Revisão da Documentação: A OKX WebSocket API v5 (seção "Connection") especifica que o cliente deve enviar "ping" como string pura a cada 30s (recomendado), e o servidor responde com "pong" no mesmo formato. O erro foi causado por tentar parsear "pong" como JSON antes de verificá-lo.
+- Correção: 
+- Movido o cheque para antes do JSON.parse, usando if (data.toString() === 'pong') para tratar a string pura corretamente (o toString() garante compatibilidade com buffers recebidos pelo ws).
+- O envio de "ping" já estava correto (ws.send('ping')), mas agora o "pong" é logado sem quebrar o fluxo.
+- Impacto: Elimina o erro de parsing, mantendo a conexão WebSocket da OKX ativa e estável com pings a cada 25s (ajustado para ficar dentro do limite recomendado de 30s).
+
+- Mudanças nos Códigos Vigentes:
+- workerConexoes.js:
+- Removido const startTime = Date.now() e o cálculo de elapsedTime na função logMessage.
+- Ajustado logMessage para exibir apenas [abs=${absoluteTime}].
+- Corrigido o tratamento de mensagens:
+  ```  ws.on('message', (data) => {
+    if (data.toString() === 'pong') {
+      logMessage('Pong recebido.');
+      return;
+    }
+    const msg = JSON.parse(data);
+    logMessage(`Mensagem recebida:\n${formatObject(msg)}`);
+    // Restante do código...
+  });
+ 
+* workerTrades.js: Nenhuma mudança necessária, pois o tempo transcorrido já estava correto com t1StartTime.
+* Observação: Esses ajustes alinham o sistema com a documentação oficial da OKX e preparam o workerConexoes.js para lidar com respostas não-JSON de outras exchanges, se necessário. O próximo passo é testar o fluxo completo com os logs corrigidos para confirmar a sincronia.
+
+[Adicionado em 31/03/2025 - 1]
+
+**Dinâmica e Lógica da Interação entre Workers e Canais da Exchange**
+
+Durante o desenvolvimento do `testadorIndependente`, identificamos e resolvemos problemas de sincronia e identificação de ordens entre o `workerConexoes.js` e o `workerTrades.js`, considerando a comunicação com a OKX via dois canais distintos: o canal de postagem (`op: 'order'`) e o canal de atualizações (`orders`). Essa interação é crítica para o funcionamento da arbitragem triangular, especialmente com ordens IOC (Immediate or Cancel), e a lógica implementada será um modelo para futuras integrações com outras exchanges (ex.: Bybit, Binance). Abaixo, detalho a dinâmica e as decisões tomadas:
+
+1. **Canais da OKX e Fluxo de Mensagens:**
+   - **Canal de Postagem (`op: 'order'`):**
+     - Usado para enviar ordens ao servidor da OKX. Retorna uma resposta imediata com `code: "0"` (sucesso) ou erro, incluindo o `ordId` (ex.: `"2379547248711999488"`) gerado pela exchange.
+     - Exemplo: Após enviar uma ordem T1 com `id: "T1090335143"`, a resposta contém o `ordId` e confirma que a ordem foi aceita pelo servidor.
+   - **Canal de Atualizações (`orders`):**
+     - Fornece atualizações em tempo real do estado da ordem (ex.: `"live"`, `"filled"`, `"canceled"`) via WebSocket, usando o mesmo `ordId`.
+     - Exemplo: Para uma ordem IOC, recebemos `"live"` seguido rapidamente por `"canceled"` se o preço não estiver disponível (ex.: `"81000"` vs. mercado em `"82117.2"`).
+   - **Observação:** Os canais operam de forma assíncrona, com latências mínimas (ex.: 1ms entre `"live"` e `"canceled"`), exigindo uma lógica robusta para correlacionar eventos.
+
+2. **Interação entre Workers:**
+   - **Worker de Conexões (`workerConexoes.js`):**
+     - Atua como proxy entre o `workerTrades.js` e a OKX, enviando ordens e recebendo respostas via WebSocket.
+     - Processa mensagens dos dois canais e as traduz em eventos `orderStatus` enviados ao `workerTrades.js` via `MessageChannel`:
+       - Do canal `op: 'order'`: Extrai o `ordId` e o `orderTag` (ex.: `"T1"`) do `id` enviado (ex.: `"T1090335143"` via `slice(0, 2)`).
+       - Do canal `orders`: Usa o `ordId` retornado, mas o `orderTag` pode ser perdido se o `clOrdId` não for configurado (atualmente vazio).
+     - Mantém a conexão WebSocket ativa com pings (25s) e reconexões (5s após falha).
+   - **Worker de Trades (`workerTrades.js`):**
+     - Gerencia a lógica da arbitragem, enviando ordens T1, T2 e T3 ao `workerConexoes.js` e reagindo aos status recebidos.
+     - Usa o `ordId` como chave primária para correlacionar mensagens, substituindo a dependência exclusiva do `orderTag`.
+
+3. **Lógica Implementada:**
+   - **Correlação por `orderId`:**
+     - O `workerTrades.js` armazena o `ordId` de T1 na primeira mensagem recebida do canal `op: 'order'` (ex.: `"accepted"` com `orderTag: "T1"`).
+     - Todas as mensagens subsequentes (do canal `orders`) são correlacionadas usando `msg.orderId === t1OrderId`, ignorando o `orderTag` se necessário (ex.: `"unknown"` devido a `clOrdId` vazio).
+     - Exemplo: `"live"` e `"canceled"` com `ordId: "2379547248711999488"()` são associados a T1 independentemente do `orderTag`.
+   - **Reação Imediata:**
+     - T1 com `"rejected"` (canal `op: 'order'`) ou `"cancelled"` (canal `orders`) aborta a arbitragem imediatamente, limpando o timeout de 3s.
+     - T2 e T3 só são disparados se T1 atingir `"filled"`.
+     - O timeout de 3s permanece como fallback, mas rarely é acionado devido à rapidez das ordens IOC.
+   - **Vantagem:** Evita a necessidade de configurar `clOrdId` no `formatOrder`, reduzindo overhead e mantendo a simplicidade.
+
+4. **Dinâmica Observada:**
+   - **Exemplo de Fluxo (Logs de 31/03/2025):**
+     - `[abs=1743418434291]`: T1 aceita (`op: 'order'`, `ordId: "2379547248711999488"`, `orderTag: "T1"`).
+     - `[abs=1743418434293]`: T1 `"live"` (`orders`, `ordId: "2379547248711999488"`, `orderTag: "unknown"`).
+     - `[abs=1743418434303]`: T1 `"canceled"` (`orders`, `ordId: "2379547248711999488"`, `orderTag: "unknown"`).
+     - `[abs=1743418434303]`: Arbitragem abortada por `"canceled"`, sem esperar timeout.
+   - **Sincronia:** As mensagens do canal `orders` chegam em sequência rápida (ex.: 10ms entre `"live"` e `"canceled"`), mas o `MessageChannel` pode agrupá-las no event loop do Node.js. A correlação por `orderId` garante que o `workerTrades.js` processe na ordem correta.
+
+5. **Implicações para Futuras Exchanges:**
+   - **Estruturas Semelhantes:** Exchanges como Bybit (com `tradeWs` e `orderWs`) ou Binance podem usar canais separados para postagem e atualização, retornando um `orderId` equivalente (ex.: `orderId` na Bybit). A lógica de usar esse ID como chave primária será reutilizável.
+   - **Desafios Potenciais:**
+     - Nem todas as exchanges garantem um `orderId` consistente entre canais; algumas exigem `clOrdId` explícito (a ser avaliado caso a caso).
+     - Latências e ordem de mensagens podem variar, exigindo ajustes no timeout ou buffers temporários.
+   - **Recomendação:** Documentar o campo de identificação primária (ex.: `orderId`, `clOrdId`) para cada exchange na matriz `exchanges` do `workerConexoes.js`.
+
+Essa abordagem tornou o sistema mais robusto e responsivo, especialmente para ordens IOC, e servirá como base escalável para integrar novas exchanges no futuro.
+-----------------------------------------------------------------
+**CÓDIGOS NO ESTADO ATUAL**
+
+-------------------------------------
+**mainTester.js**
+
+const { Worker, MessageChannel, workerData } = require('worker_threads');
+
+const { port1: portToTrades, port2: portToMain } = new MessageChannel();
+
+const conexoesWorker = new Worker('./workerConexoes.js', {
+workerData: {
+okxApiKey: 'ac0bc774-1bad-4da2-83f9-55b8eebb697d',
+okxApiSecret: '4AD9EBBD4A8EEB6526F31B9527545ADC',
+okxPassphrase: 'Aa@066466646',
+}
+});
+const tradesWorker = new Worker('./workerTrades.js');
+
+conexoesWorker.postMessage({ type: 'init', portToTrades }, [portToTrades]);
+tradesWorker.postMessage({ type: 'init', portToMain }, [portToMain]);
+
+conexoesWorker.on('message', (msg) => {
+if (msg.type === 'conexoesProntas') {
+console.log('[maintester] Conexões prontas. Iniciando trades...');
+const operacoes = [
+{ exchange: 'OKX', par: 'BTC-USDT', side: 'buy', type: 'limit', amount: '0.0001', price: '81000', timeInForce: 'IOC', orderTag: 'T1' },
+{ exchange: 'OKX', par: 'BTC-BRL', side: 'sell', type: 'limit', amount: '0.0001', price: '400000', timeInForce: null, orderTag: 'T2' },
+{ exchange: 'OKX', par: 'USDT-BRL', side: 'sell', type: 'limit', amount: '1.000', price: '7', timeInForce: null, orderTag: 'T3' }
+];
+tradesWorker.postMessage({ type: 'start', operacoes });
+}
+});
+
+tradesWorker.on('message', (msg) => {
+console.log([maintester] Mensagem do Worker de Trades: ${JSON.stringify(msg)});
+});
+
+-------------------------------------
+**workerConexoes.js**
+
+const { parentPort, workerData } = require('worker_threads');
+const WebSocket = require('ws');
+const crypto = require('crypto');
+
+// Cores ANSI
+const GREEN = '\x1b[32m';
+const BROWN = '\x1b[33m';
+const RESET = '\x1b[0m';
+
+// Credenciais da OKX (via workerData)
+const { okxApiKey, okxApiSecret, okxPassphrase } = workerData;
+
+// Configuração modular das exchanges
+const exchanges = {
+OKX: {
+wsUrl: 'wss://ws.okx.com:8443/ws/v5/private',
+formatOrder: (order) => {
+const now = new Date();
+const hhmmssSSS = now.toISOString().slice(11, 23).replace(/[:.]/g, ''); // Ex.: "123456789"
+return {
+id: ${order.orderTag}${hhmmssSSS}, // Ex.: "T1123456789"
+op: 'order',
+args: [{
+instId: order.par,
+side: order.side,
+ordType: order.timeInForce === 'IOC' ? 'ioc' : order.type,
+sz: order.amount,
+px: order.price || undefined,
+tdMode: 'cash',
+ccy: 'USDT' // Adicionado para alinhar com o exemplo
+}]
+};
+},
+parseStatus: (msg, channel) => {
+if (channel === 'trade') {
+return msg.code === '0' ? 'accepted' : 'rejected';
+} else if (channel === 'orders') {
+return msg.state === 'filled' ? 'filled' : msg.state === 'canceled' ? 'cancelled' : 'accepted';
+}
+}
+}
+};
+
+// Função para formatar objetos com cores
+function formatObject(obj) {
+return JSON.stringify(obj, null, 2)
+.replace(/"([^"]+)": "([^"]+)"/g, "$1": ${GREEN}"$2"${RESET})
+.replace(/"([^"]+)": (\d+(.\d+)?)/g, "$1": ${BROWN}$2${RESET})
+.replace(/"([^"]+)": null/g, "$1": null);
+}
+
+function logMessage(message) {
+const absoluteTime = Date.now();
+console.log([workerConexoes] [abs=${absoluteTime}] ${message});
+}
+
+// Função para gerar assinatura OKX
+function generateOKXSignature(timestamp, method, path, body) {
+const prehashString = timestamp + method + path + (body || '');
+return crypto.createHmac('sha256', okxApiSecret).update(prehashString).digest('base64');
+}
+
+// Conexão WebSocket real
+let ws;
+let portToTrades;
+let pingInterval;
+
+function connectOKXWebSocket() {
+ws = new WebSocket(exchanges.OKX.wsUrl);
+
+ws.on('open', () => {
+logMessage('Conectado ao WebSocket OKX.');
+
+// Autenticação
+const timestamp = (Date.now() / 1000).toString();
+const sign = generateOKXSignature(timestamp, 'GET', '/users/self/verify', '');
+ws.send(JSON.stringify({
+op: 'login',
+args: [{
+apiKey: okxApiKey,
+passphrase: okxPassphrase,
+timestamp: timestamp,
+sign: sign
+}]
+}));
+});
+
+ws.on('message', (data) => {
+if (data.toString() === 'pong') {
+logMessage('Pong recebido.');
+return;
+}
+
+const msg = JSON.parse(data);
+logMessage(Mensagem recebida:\n${formatObject(msg)});
+
+// Autenticação bem-sucedida
+if (msg.event === 'login' && msg.code === '0') {
+logMessage('Autenticado com sucesso.');
+
+// Inscrever-se no canal orders
+ws.send(JSON.stringify({
+op: 'subscribe',
+args: [{ channel: 'orders', instType: 'SPOT', instId: 'BTC-USDT' }]
+}));
+
+// Notificar main que conexões estão prontas
+setTimeout(() => parentPort.postMessage({ type: 'conexoesProntas' }), 1000);
+
+// Iniciar ping após autenticação
+pingInterval = setInterval(() => {
+if (ws.readyState === WebSocket.OPEN) {
+ws.send('ping');
+logMessage('Ping enviado.');
+}
+}, 25000); // 25 segundos, como no exemplo
+}
+
+// Subscrição confirmada
+if (msg.event === 'subscribe' && msg.arg?.channel === 'orders') {
+logMessage('Inscrito no canal orders.');
+}
+
+// Ordem enviada (canal de envio)
+if (msg.op === 'order') {
+const orderTag = msg.id.slice(0, 2); // Extrai "T1", "T2", etc.
+if (msg.code === '0') {
+const orderData = msg.data[0];
+portToTrades.postMessage({
+type: 'orderStatus',
+exchange: 'OKX',
+orderId: orderData.ordId,
+status: exchanges.OKX.parseStatus(msg, 'trade'),
+orderTag: orderTag
+});
+} else {
+// Rejeição imediata
+portToTrades.postMessage({
+type: 'orderStatus',
+exchange: 'OKX',
+orderId: msg.id,
+status: 'rejected',
+orderTag: orderTag,
+errorCode: msg.code,
+errorMsg: msg.msg
+});
+}
+}
+
+// Atualização de ordem (canal orders)
+if (msg.arg?.channel === 'orders' && msg.data) {
+msg.data.forEach(order => {
+const status = exchanges.OKX.parseStatus(order, 'orders');
+const orderTag = order.clOrdId ? order.clOrdId.slice(0, 2) : 'unknown';
+portToTrades.postMessage({
+type: 'orderStatus',
+exchange: 'OKX',
+orderId: order.ordId,
+status: status,
+orderTag: orderTag
+});
+});
+}
+});
+
+ws.on('close', () => {
+logMessage('WebSocket desconectado. Tentando reconectar em 5s...');
+clearInterval(pingInterval);
+setTimeout(connectOKXWebSocket, 5000);
+});
+
+ws.on('error', (err) => {
+logMessage(Erro no WebSocket: ${err.message});
+});
+}
+
+// Enviar ordem real
+function sendOrder(exchange, order) {
+const formattedOrder = exchanges[exchange].formatOrder(order);
+logMessage(Enviando ordem:\n${formatObject(formattedOrder)});
+ws.send(JSON.stringify(formattedOrder));
+}
+
+// Inicialização
+parentPort.on('message', (msg) => {
+if (msg.type === 'init') {
+portToTrades = msg.portToTrades;
+connectOKXWebSocket();
+
+portToTrades.on('message', (msg) => {
+if (msg.type === 'postOrder') {
+logMessage(Recebida ordem do trades:\n${formatObject(msg)});
+sendOrder(msg.exchange, msg.order);
+}
+});
+}
+});
+
+-------------------------------------
+**workerTrades.js**
+const { parentPort } = require('worker_threads');
+
+// Cores ANSI
+const GREEN = '\x1b[32m';
+const BROWN = '\x1b[33m';
+const RESET = '\x1b[0m';
+
+let portToTrades;
+let operacoes = [];
+let t1StartTime = null;
+let t1Filled = false;
+let t1OrderId = null;
+let timeoutId = null;
+
+// Função para formatar objetos com cores
+function formatObject(obj) {
+return JSON.stringify(obj, null, 2)
+.replace(/"([^"]+)": "([^"]+)"/g, "$1": ${GREEN}"$2"${RESET})
+.replace(/"([^"]+)": (\d+(.\d+)?)/g, "$1": ${BROWN}$2${RESET})
+.replace(/"([^"]+)": null/g, "$1": null);
+}
+
+function logMessage(message) {
+const absoluteTime = Date.now();
+const elapsed = t1StartTime ? [t=${absoluteTime - t1StartTime}ms] : '[t=0ms]';
+console.log([workerTrades] ${elapsed} [abs=${absoluteTime}] ${message});
+}
+
+function postOrder(order) {
+logMessage(`Postando ordem ${order.orderTag}:\禁止
+portToTrades.postMessage({ type: 'postOrder', exchange: order.exchange, order });
+}
+
+parentPort.on('message', (msg) => {
+if (msg.type === 'init') {
+portToTrades = msg.portToMain;
+logMessage('Inicializado.');
+
+portToTrades.on('message', (msg) => {
+if (msg.type === 'orderStatus') {
+logMessage(Status recebido:\n${formatObject(msg)});
+
+// Se é a primeira mensagem de T1 (do canal de postagem), armazenar o orderId
+if (msg.orderTag === 'T1' && !t1OrderId) {
+t1OrderId = msg.orderId;
+if (msg.status === 'rejected') {
+logMessage(T1 rejeitada pelo servidor. Motivo: ${msg.errorCode} - ${msg.errorMsg}. Parando arbitragem.);
+clearTimeout(timeoutId);
+operacoes = [];
+return;
+}
+if (msg.status === 'accepted') {
+logMessage('T1 aceita pelo servidor. Aguardando preenchimento ou cancelamento...');
+}
+}
+
+// Processar todas as mensagens relacionadas a T1 usando o orderId
+if (msg.orderId === t1OrderId) {
+if (msg.status === 'rejected') {
+logMessage(T1 rejeitada pelo servidor. Motivo: ${msg.errorCode} - ${msg.errorMsg}. Parando arbitragem.);
+clearTimeout(timeoutId);
+operacoes = [];
+return;
+}
+if (msg.status === 'cancelled') {
+logMessage('T1 cancelada pela exchange. Parando arbitragem.');
+clearTimeout(timeoutId);
+operacoes = [];
+return;
+}
+if (msg.status === 'filled') {
+t1Filled = true;
+logMessage('T1 preenchida. Disparando T2 e T3...');
+clearTimeout(timeoutId);
+const t2 = operacoes.find(op => op.orderTag === 'T2');
+const t3 = operacoes.find(op => op.orderTag === 'T3');
+postOrder(t2);
+postOrder(t3);
+}
+} else if (msg.orderTag === 'T2' || msg.orderTag === 'T3') {
+if (msg.status === 'accepted') {
+logMessage(${msg.orderTag} aceita pelo servidor.);
+} else if (msg.status === 'rejected') {
+logMessage(${msg.orderTag} rejeitada. Continuando sem cancelar.);
+} else if (msg.status === 'filled') {
+logMessage(${msg.orderTag} preenchida.);
+} else if (msg.status === 'cancelled') {
+logMessage(${msg.orderTag} cancelada.);
+}
+}
+}
+});
+} else if (msg.type === 'start') {
+operacoes = msg.operacoes;
+logMessage('Iniciando arbitragem com matriz de operações.');
+const t1 = operacoes.find(op => op.orderTag === 'T1');
+t1StartTime = Date.now();
+postOrder(t1);
+
+timeoutId = setTimeout(() => {
+if (!t1Filled && operacoes.length > 0) { // Só dispara se ainda estiver ativa
+logMessage('Timeout de 3s para T1. Parando arbitragem.');
+operacoes = [];
+}
+}, 3000);
+}
+});

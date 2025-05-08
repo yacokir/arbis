@@ -1,0 +1,1141 @@
+Na sequencia te passo a doc do sistema que estamos desenvolvendo e os workers atualizados do workerexecbybit e workerexecokx. Nao faça nada ainda, so recebe e analisa o material, sem dar respostas, ok?
+DOC:
+Na sequencia te passo a documentação de um sistema que estamos desenvolvendo e os códigos relevantes para o trabalho no estado atual. Me diz brevemente o que vc entendeu. Nao faça nada ainda.
+
+Documentação do Sistema de Arbitragem Triangular
+Objetivo
+Desenvolver um sistema baseado em worker_threads do Node.js para detecção e execução de arbitragens triangulares de criptoativos em tempo real. O sistema é projetado para operar com baixa latência, modularidade e escalabilidade para suportar 6-10 exchanges, garantindo resiliência e eficiência na execução de ordens.
+Estrutura Geral
+O sistema é organizado em três níveis de workers:
+•	Main: Nivel 1. Inicializa workers de dados e o coordenador, detecta arbitragens com base em dados de mercado e gera a matriz de operações. (Desenvolvido, com pequenas adaptações pendentes.)
+•	Workers de Dados: Nivel 2. Um por exchange, coletam dados de mercado (order books, preços) via WebSocket público e enviam ao main para análise. (Desenvolvido, com pequenas adaptações pendentes.)
+•	Worker Coordenador: Nivel 2. Recebe a matriz de operações e gerencia a arbitragem. Distribui as ordens (T1, T2, T3) para os workers de execução. 
+•	Workers de Execução: Nivel 3. Um por exchange (ex.: OKX, Bybit), gerenciam WebSockets privados para postagem e monitoramento de ordens. 
+•	Workers Opcionais: Nivel 2. Ex.: workerSaldos, para monitoramento de saldos via WebSocket privado, planejado para futura implementação.
+A comunicação segue a cadeia: main → workers de dados/coordenador → workers de execução, utilizando MessageChannel para baixa latência. Cada worker opera de forma independente, com conexões WebSocket mantidas ociosas (com pings regulares) até a execução de ordens.
+Dinâmica de Arbitragem
+O sistema executa arbitragens triangulares com três operações sequenciais (T1, T2, T3), como comprar BTC, vender BTC e comprar USDT. O fluxo é o seguinte:
+•	O main analisa dados de mercado, detecta uma oportunidade de arbitragem e gera a matriz de operações, enviada ao coordenador.
+•	O coordenador envia T1 ao worker de execução correspondente e monitora o status retornado. A ordem enviada passa por dois etapas; Validação e Execução.
+o	Validação. A plataforma checa se a ordem atende todas os requisitos da Exchange, como sintaxes, parâmetros, formatos, etc. e responde com uma mensagem. Esta mensagem normalmente chega pelo mesmo ws/canal da postagem informando se passou ou não pela validação. 
+	accepted: Se a ordem passou na validação ela é registrada no order book e passa à etapa da execução. Neste caso o worker informa ao coordenador dizendo que foi ‘accepted’.
+	rejected: A ordem falhou na validação e a plataforma a rejeitou com uma mensagem de erro (ex: faltou um parâmetro obrigatório, saldo insuficiente, etc.). O worker informa ao coordenador que a order foi ‘rejected’ e a mensagem de erro. O coordenador então aborta a arbitragem interrompendo o envio da T2 e T3 e avisa.
+o	Execução. A ordem foi validada e chega ao mergado, onde tentara ser executada. Normalmente, esta informação chega pelo ws/canal da descrição das ordens (com todos os parâmetros da ordem), isso depende da Exchange. Em função do sucesso da execução a descrição inclui um parâmetro de estado, ou status. Esse parâmetro poderá ter os seguintes valores:
+	filled: (as vezes executed) Significa que a ordem foi executada satisfatoriamente no mercado. O worker informa ao coordenador e ele continua a arbitragem, enviando as T2 e T3 aos Workers correspondentes.
+	live: (as vezes new) Significa que a ordem está no order book esperando ser filled. O worker informa isso ao coordenador e ele aborta a arbitragem, não enviando as T2 e T3.
+	cancelled: A ordem não foi executada e não fica no order book. Isso normalmente acontece se a ordem é IOC mas não existia o preço pedido. Neste caso o coordenador também aborta a arbitragem.
+o	accepted/rejected são termos padrao. Ja os outros podem ser diferentes dependendo da Exchange. 
+•	Existe um timeout de 3 segundos é aplicado a T1. Se não houver resposta nesse período a arbitragem é abortada.
+•	Após T1 ser preenchida, o coordenador envia T2 e T3 aos workers correspondentes, que reportam seus status. A arbitragem termina com o log dos resultados.
+Nem todas as exchanges seguem o mesmo padrão de canais:
+•	OKX e Bybit usam dois canais: um para validação técnica (accepted/rejected) e outro para execução no mercado (live/filled/cancelled).
+•	Outras exchanges podem usar um único canal, combinando validação e execução em uma mensagem, a ser considerado em expansões futuras.
+Matriz de Operações
+A matriz de operações é uma lista de ordens gerada pelo main, contendo os detalhes de T1, T2 e T3. Cada ordem inclui campos genéricos para compatibilidade entre exchanges:
+•	exchange: Identificador da exchange (ex.: OKX, Bybit).
+•	symbol: Par de negociação (ex.: BTCUSDT, BTCBRL).
+•	side: Lado da ordem (buy, sell).
+•	type: Tipo da ordem (market, limit).
+•	amount: Quantidade a negociar (em moeda base ou cotada, conforme a exchange).
+•	price: Preço da ordem (obrigatório para limit, ignorado para market).
+•	timeInForce: Política de execução (ex.: ioc para Immediate or Cancel, null para padrão).
+No estado atual de desenvolvimento, a matriz é simulada pelo coordenador (ex.: operacoesSimuladas em mainCorda.js) para testes, em vez de ser recebida do main. O coordenador inicializa a matriz ao começar a arbitragem, enviando T1 ao worker de execução e, se preenchida, prosseguindo com T2 e T3.
+const operacoesSimuladas = [
+{ exchange: 'OKX', symbol: 'BTCUSDT', side: 'buy', type: 'limit', amount: '0.0001', price: '82700', timeInForce: 'IOC' },
+{ exchange: 'Bybit', symbol: 'BTCBRL', side: 'sell', type: 'limit', amount: '0.0001', price: '500000', timeInForce: null },
+{ exchange: 'OKX', symbol: 'USDTBRL', side: 'sell', type: 'market', amount: '8.3', price: '6', timeInForce: null },
+];
+Mapeamento de Campos da Matriz de Operações
+Os campos genéricos da matriz de operações devem ser mapeados para os padrões específicos de cada exchange, já que as APIs variam em nomenclatura e formatação. A tabela abaixo resume a correspondência para as exchanges atuais (OKX, Bybit) e futuras (Binance, KuCoin, etc.):
+Exchange	Symbol	Side	Type	Quantity	TimeInForce
+OKX	instId (ex.: BTC-USDT)	buy/sell	ordType (market/ioc/limit)	sz	ioc (via ordType)
+Bybit	symbol (ex.: BTCUSDT)	Buy/Sell	Market/Limit	qty	GTC/IOC/FOK
+Binance*	symbol (ex.: BTCUSDT)	BUY/SELL	MARKET/LIMIT	quantity	GTC/IOC/FOK
+KuCoin*	symbol (ex.: BTC-USDT)	buy/sell	market/limit	size	GTC/IOC/FOK
+BitPreço*	symbol (ex.: BTC-BRL)	buy/sell	market/limit	amount	Não especificado
+NovaDAX*	symbol (ex.: BTC_BRL)	BUY/SELL	MARKET/LIMIT	amount	Não especificado
+Foxbit*	symbol (ex.: BTC_BRL)	buy/sell	market/limit	quantity	Não especificado
+Mercado Bitcoin*	symbol (ex.: BTCBRL)	buy/sell	market/limit	quantity	Não especificado
+*Outras exchanges são considerações futuras, a serem detalhadas conforme integração.
+Detalhes de Mapeamento
+•	OKX:
+o	symbol → instId: Adiciona hífen (ex.: BTCUSDT → BTC-USDT).
+o	type/timeInForce → ordType: Combina em um campo (ex.: limit + ioc → ioc, market + null → market).
+o	amount → sz: Quantidade em BTC (para spot, com tgtCcy: base_ccy em ordens a mercado).
+o	price → px: Obrigatório para limit/ioc, ignorado para market.
+o	tgtCcy: base_ccy para ordens a mercado, omitido para ordens limite.
+•	Bybit:
+o	symbol → symbol: Mantém sem hífen (ex.: BTCUSDT).
+o	side → side: Capitalizado (ex.: Buy, Sell).
+o	type → orderType: Market ou Limit.
+o	amount → qty: Quantidade em moeda base.
+o	timeInForce → timeInForce: IOC, GTC ou FOK (ex.: ioc para ordens imediatas).
+Este mapeamento é implementado nos workers de execução, mas centralizado aqui para facilitar a manutenção e adição de novas exchanges.
+Rastreamento de Tempo
+O rastreamento de tempo é essencial para monitorar a latência e garantir a consistência da arbitragem:
+•	t0: Timestamp da detecção da arbitragem no Main e propaga ao coordenador e a todos os Workers envolvidos. Atualmente simulado pelo coordenador ao enviar T1 ao worker de execução (ex.: em startArbitrage).
+•	t: Tempo relativo (t = abs - t0), calculado para cada evento (envio de ordem, recebimento de status).
+•	abs: Timestamp absoluto de cada evento (ex.: Date.now()).
+•	O coordenador centraliza o rastreamento, logando eventos com t e abs e usando o status de T1 para decidir o fluxo (prosseguir com T2/T3 ou abortar). Os workers de execução reportam t e abs em mensagens de status, garantindo sincronia.
+Worker Coordenador
+•	Função: Gerencia a arbitragem, recebendo (ou simulando, no estado atual) a matriz de operações do main. Distribui ordens (T1, T2, T3) aos workers de execução via MessageChannel, monitora status e decide o fluxo:
+o	Envia T1 e aguarda status (accepted, rejected, filled, cancelled).
+o	Se T1 for filled, envia T2 e T3; caso contrário, aborta.
+o	Aplica timeout de 3s para T1, abortando se não preenchida.
+•	Dependência: Futuramente receberá a matriz do main; atualmente simula a matriz e t0. Interage com workers de execução (OKX, Bybit).
+•	Estado: Mantém conexões ociosas com workers, rastreia ordens via IDs (ex.: t1PendingOrderId, t1OrderId) e loga eventos com tempos relativos e absolutos.
+•	Comunicação: Envia { type: 'executeOrder', order, orderId } aos workers e recebe { type: 'orderStatus', orderId, status, instId, avgPx, fillSz, cancelSource, abs, t }.
+Worker de Execução: OKX
+•	Função: Gerencia um WebSocket privado para postagem e monitoramento de ordens, formatando a matriz de operações para a API da OKX e retornando status ao coordenador.
+•	Canais:
+o	Canal de Postagem (op: 'order'): Valida ordens tecnicamente (parâmetros, saldo, sintaxe), identificado por msg.op === 'order'. Retorna:
+	accepted (code: "0", com ordId): Ordem válida, postada no mercado.
+	rejected (code !== "0", ex.: 51020): Erro técnico (ex.: tamanho insuficiente), sem ativação do canal de ordens.
+o	Canal de Ordens (orders): Reporta o estado no mercado, identificado por msg.arg.channel === 'orders'. Ativado após accepted, retorna:
+	live: Ordem ativa no livro de ordens (opcional).
+	filled: Ordem executada, com avgPx (preço médio) e fillSz (quantidade preenchida).
+	cancelled: Ordem não executada (ex.: IOC sem liquidez), com cancelSource.
+•	Conexão: Um WebSocket (wss://ws.okx.com:8443/ws/v5/private), autenticado via HMAC-SHA256 (apiKey, passphrase, timestamp, assinatura). Ping a cada 25s, reconexão após 5s se falhar.
+•	Mapeamento de Campos: Consulte a seção "Mapeamento de Campos da Matriz de Operações". Índice resumido:
+o	symbol → instId (ex.: BTCUSDT → BTC-USDT).
+o	side → side (buy/sell).
+o	type/timeInForce → ordType (ex.: limit + ioc → ioc).
+o	amount → sz (em BTC).
+o	price → px (ignorado para mercado).
+o	tgtCcy: base_ccy (mercado), omitido (limite).
+•	Especificidades:
+o	Suporta ordens spot (tdMode: cash).
+o	Ajusta sz para atender mínimos (ex.: 0.00001 BTC para BTC-USDT, ~$5-10 USDT implícito para mercado).
+o	Erro 51020 "Order amount too low" ou ("Your order should meet or exceed the minimum order amount".  Isso pode acontecer por: 
+•	Unidade errada do sz: Em ordens a mercado, o sz pode ser interpretado em BTC (moeda base) ou USDT (moeda de cotação), dependendo do tgtCcy. Se configurado incorretamente (ex.: tgtCcy: "quote_ccy" com sz em BTC), o valor fica muito baixo (ex.: 0.0007 USDT em vez de 0.0007 BTC).
+•	Mínimos implícitos: Algumas exchanges impõem um valor mínimo em moeda de cotação (ex.: $5-$10 USDT) para ordens a mercado, além do minSz em moeda base (ex.: 0.00001 BTC).
+•	Outras exchanges: Esse problema pode aparecer em plataformas como Binance, Bybit ou KuCoin, onde ordens a mercado também podem exigir um valor mínimo em USDT ou outra moeda fiat/stablecoin, especialmente para compras (buy). Sempre cheque a documentação ou API de instrumentos para confirmar os mínimos (minSz, minNotional, etc.).
+•	Solução: Especifique claramente a unidade do sz (BTC ou USDT) e ajuste o valor para atender aos mínimos da Exchange.
+________________________________________
+Regra Simples
+Assumindo trades em modo spot (tdMode: "cash") e tamanhos sempre em BTC:
+•	Limite (buy ou sell): sz em BTC, px obrigatório, sem tgtCcy (não precisa, melhor omitir).
+•	Mercado (buy ou sell): sz em BTC, use tgtCcy: "base_ccy" (melhor incluir), sem px.
+________________________________________
+Tamanho e Minimo dos Lotes 
+Resumo dos Mínimos Confirmados:
+Par	Moeda Base	minSz (BTC)	
+BTC-USDT	BTC	0.00001	
+BTC-BRL	BTC	0.0001	1/10 USDT
+USDT-BRL	USDT	USDT 1)	
+
+Os tick sizes são diferentes também.
+O mesmo erro pode acontecer em outras exchanges.
+
+Worker de Execução: Bybit
+•	Função: Gerencia dois WebSockets privados para postagem e monitoramento, formatando a matriz de operações para a API da Bybit e retornando status ao coordenador.
+•	Canais:
+o	tradeWs (op: 'order.create'): Posta ordens, identificado por msg.op === 'order.create'. Retorna:
+	accepted (retCode: 0, com orderId): Ordem válida, postada.
+	rejected (retCode !== 0): Erro técnico (ex.: quantidade inválida).
+o	orderWs (topic: 'order'): Monitora o estado no mercado, identificado por msg.topic === 'order'. Retorna:
+	live (orderStatus: "New"): Ordem ativa.
+	filled (orderStatus: "Filled"): Ordem executada, com avgPrice e cumExecQty.
+	cancelled (orderStatus: "Cancelled"): Ordem não executada, com rejectReason.
+•	Conexão:
+o	tradeWs: wss://stream.bybit.com/v5/trade, para postagem.
+o	orderWs: wss://stream.bybit.com/v5/private, para status.
+o	Ambos autenticados via HMAC-SHA256 (apiKey, expires, assinatura). Ping a cada 20s, reconexão após 5s.
+•	Mapeamento de Campos: Consulte a seção "Mapeamento de Campos da Matriz de Operações". Índice resumido:
+o	symbol → symbol (ex.: BTCUSDT).
+o	side → side (Buy/Sell).
+o	type → orderType (Market/Limit).
+o	amount → qty (em moeda base).
+o	timeInForce → timeInForce (ex.: IOC).
+•	Especificidades:
+o	Usa orderIdMap para correlacionar clientOrderId (interno) com orderId (Bybit), evitando confusões com IDs temporários (formattedOrder.id).
+o	Suporta ordens spot, com formatação de side capitalizado e timestamp na postagem.
+Observações para Futuro Desenvolvimento
+•	Expansão de Exchanges: Incorporar Binance, KuCoin, BitPreço, etc., atualizando o mapeamento de campos e adaptando workers de execução.
+•	Modularidade: Workers de execução são agnósticos, permitindo adicionar novas exchanges com ajustes mínimos na formatação de ordens e mapeamento de campos.
+•	Escalabilidade: Suporte planejado para 6-10 exchanges, com o coordenador gerenciando múltiplos workers via MessageChannel.
+•	Exclusão de Exchanges Ocupadas: Implementar mecanismo para evitar novas arbitragens em exchanges com operações em andamento.
+•	Saldos Insuficientes: Logar avisos para T2/T3 sem ação imediata, já que T1 captura o lucro principal.
+•	Múltiplas Arbitragens: Gerenciar sobreposições futuramente, assumindo raridade no estado atual.
+Integração com Main: Substituir a simulação da matriz e t0 no coordenador pela comunicação real com o main. 
+Roteiro Padrão Para Inclusão de Novas Exchanges.
+1.	Produzir um código que conecte com a Exchange e subscreva os ws e canais necessários.
+2.	Acrescentar ao código a postagem de uma ordem fixa de um coordenador simulado.
+3.	Integrar o código ao coordenador.
+Eventualmente este processo pode ser alterado para:
+1.	Produzir um código que conecte com a Exchange e subscreva os ws e canais necessários.
+2.	Criar um mainProxy simplificado que simule o coordenador. Este mainProxy deverá ter apenas as instruções e rotinas necessárias para rodar o código anterior, descartando todo o resto.
+3.	Acrescentar ao código a postagem de uma ordem fixa de um coordenador simulado.
+4.	Integrar o código ao coordenador observando as especificidades do mainProxy.
+--------------------------------------------------------------------------------------------------------------------------
+CODIGO BYBIT:
+"use strict";
+const { parentPort, workerData } = require('worker_threads');
+const WebSocket = require('ws');
+const crypto = require('crypto');
+
+// Cores ANSI para logs
+const GREEN = '\x1b[32m';
+const BROWN = '\x1b[33m';
+const RED = '\x1b[31m';
+const RESET = '\x1b[0m';
+
+// Credenciais da Bybit
+const { bybitApiKey, bybitApiSecret } = workerData;
+
+// Validação das credenciais
+if (!bybitApiKey || !bybitApiSecret) {
+  console.error('[workerExecBybit] Erro: Credenciais incompletas no workerData:', workerData);
+  throw new Error('Credenciais da Bybit não fornecidas corretamente');
+}
+
+// Mapa para correlacionar IDs
+const orderIdMap = new Map();
+
+// Contador para numerar mensagens do WebSocket de ordens
+let orderMessageCounter = 0;
+
+// Configuração da Bybit
+const exchanges = {
+  Bybit: {
+    tradeWsUrl: 'wss://stream.bybit.com/v5/trade',
+    orderWsUrl: 'wss://stream.bybit.com/v5/private',
+    formatOrder: (order) => {
+      const now = new Date();
+      const hhmmssSSS = now.toISOString().slice(11, 23).replace(/[:.]/g, '');
+      const timestamp = Date.now().toString();
+      let orderType;
+      if (order.type === 'limit' && order.timeInForce?.toLowerCase() === 'ioc') {
+        orderType = 'Limit';
+      } else if (order.type === 'limit' && !order.timeInForce) {
+        orderType = 'Limit';
+      } else if (order.type === 'market' && !order.timeInForce) {
+        orderType = 'Market';
+      } else {
+        throw new Error(`Tipo inválido: ${order.type}/${order.timeInForce}`);
+      }
+      const params = {
+        category: 'spot',
+        symbol: order.symbol,
+        side: order.side.charAt(0).toUpperCase() + order.side.slice(1).toLowerCase(),
+        orderType,
+        isLeverage: '1',
+        qty: order.amount,
+        timestamp,
+      };
+      if (orderType === 'Limit') {
+        params.price = order.price;
+        if (order.timeInForce?.toLowerCase() === 'ioc') {
+          params.timeInForce = 'IOC';
+        }
+      }
+      return {
+        id: `ORD${hhmmssSSS}`,
+        header: {
+          "X-BAPI-TIMESTAMP": timestamp,
+          "X-BAPI-RECV-WINDOW": "2000"
+        },
+        op: 'order.create',
+        args: [params],
+      };
+    },
+    parseStatus: (msg, channel) => {
+      if (channel === 'trade') {
+        return msg.retCode === 0 ? 'accepted' : 'rejected';
+      } else if (channel === 'orders') {
+        return msg.orderStatus === 'Filled' ? 'filled' :
+               msg.orderStatus === 'Cancelled' ? 'cancelled' :
+               msg.orderStatus === 'New' ? 'live' : 'unknown';
+      }
+    },
+  },
+};
+
+// Função para formatar objetos nos logs
+function formatObject(obj) {
+  return JSON.stringify(obj, null, 2)
+    .replace(/"([^"]+)": "([^"]+)"/g, `"$1": ${GREEN}"$2"${RESET}`)
+    .replace(/"([^"]+)": (\d+(.\d+)?)/g, `"$1": ${BROWN}$2${RESET}`)
+    .replace(/"([^"]+)": null/g, `"$1": null`);
+}
+
+// Função de log com timestamps
+let t0;
+function logMessage(channel, message) {
+  const abs = Date.now();
+  const t = t0 ? abs - t0 : 0;
+  console.log(`[workerExecBybit - ${channel}] [abs=${abs} t=${t}] ${message}`);
+}
+
+// Gera assinatura HMAC-SHA256 para autenticação do WebSocket
+function generateBybitSignature(expires) {
+  const prehashString = `GET/realtime${expires}`;
+  return crypto.createHmac('sha256', bybitApiSecret).update(prehashString).digest('hex');
+}
+
+let tradeWs;
+let orderWs;
+let pingIntervalTrade;
+let pingIntervalOrder;
+
+function connectTradeWebSocket() {
+  tradeWs = new WebSocket(exchanges.Bybit.tradeWsUrl);
+  tradeWs.on('open', () => {
+    const expires = (Date.now() + 10000).toString();
+    const signature = generateBybitSignature(expires);
+    tradeWs.send(JSON.stringify({
+      op: 'auth',
+      args: [bybitApiKey, expires, signature],
+    }));
+    startPingIntervalTrade();
+  });
+  tradeWs.on('message', (data) => {
+    let msg;
+    try {
+      msg = JSON.parse(data);
+    } catch (e) {
+      logMessage('Erro', `Erro ao parsear: ${data}`);
+      return;
+    }
+    if (msg.op === 'order.create') {
+      const abs = Date.now();
+      const t = t0 ? abs - t0 : 0;
+      const status = exchanges.Bybit.parseStatus(msg, 'trade');
+      // Busca o clientOrderId pelo formattedOrder.id enviado
+      const sentOrder = [...orderIdMap.entries()].find(([_, id]) => id.startsWith('ORD'));
+      const clientOrderId = sentOrder ? sentOrder[0] : null;
+      if (msg.retCode === 0 && msg.data?.orderId) {
+        if (clientOrderId) {
+          orderIdMap.set(clientOrderId, msg.data.orderId); // Atualiza para orderId da Bybit
+          logMessage('Postagem', `Postagem: ${status} para ${msg.data.orderId} (clientOrderId: ${clientOrderId})`);
+          parentPort.postMessage({
+            type: 'orderStatus',
+            channel: 'Postagem',
+            orderId: clientOrderId,
+            status,
+            instId: msg.data.symbol,
+            abs,
+            t,
+          });
+        } else {
+          logMessage('Postagem', `Erro: Nenhum clientOrderId encontrado para atualizar com orderId: ${msg.data.orderId}`);
+        }
+      } else {
+        logMessage('Postagem', `Postagem rejeitada: ${msg.retMsg}`);
+        parentPort.postMessage({
+          type: 'orderStatus',
+          channel: 'Postagem',
+          orderId: clientOrderId || 'unknown',
+          status,
+          instId: msg.args?.[0]?.symbol || 'unknown',
+          errorCode: msg.retCode,
+          errorMsg: msg.retMsg,
+          abs,
+          t,
+        });
+      }
+    }
+  });
+  tradeWs.on('ping', () => {
+    console.log('Recebido ping do servidor Bybit');
+    tradeWs.pong();
+  });
+  tradeWs.on('pong', () => {
+    console.log('Recebido pong do WebSocket Bybit');
+  });
+  tradeWs.on('close', () => {
+    logMessage('Geral', 'Trade WebSocket fechado');
+    clearPingIntervalTrade();
+    setTimeout(connectTradeWebSocket, 5000);
+  });
+  tradeWs.on('error', (err) => {
+    logMessage('Erro', `Erro no Trade WebSocket: ${err.message}`);
+  });
+}
+
+function connectOrderWebSocket() {
+  orderWs = new WebSocket(exchanges.Bybit.orderWsUrl);
+  orderWs.on('open', () => {
+    const expires = (Date.now() + 10000).toString();
+    const signature = generateBybitSignature(expires);
+    orderWs.send(JSON.stringify({
+      op: 'auth',
+      args: [bybitApiKey, expires, signature],
+    }));
+    startPingIntervalOrder();
+  });
+  orderWs.on('message', (data) => {
+    orderMessageCounter++;
+    let msg;
+    try {
+      msg = JSON.parse(data);
+    } catch (e) {
+      logMessage('Erro', `Erro ao parsear: ${data}`);
+      return;
+    }
+    if (msg.op === 'auth' && msg.success) {
+      orderWs.send(JSON.stringify({
+        op: 'subscribe',
+        args: ['order'],
+      }));
+    }
+    if (msg.op === 'subscribe' && msg.success) {
+      parentPort.postMessage({ type: 'conexoesProntas' });
+    }
+    if (msg.topic === 'order' && msg.data?.length > 0) {
+      const abs = Date.now();
+      const t = t0 ? abs - t0 : 0;
+      msg.data.forEach((order) => {
+        const status = exchanges.Bybit.parseStatus(order, 'orders');
+        const clientOrderId = [...orderIdMap.entries()].find(([_, id]) => id === order.orderId)?.[0];
+        if (!clientOrderId) {
+          logMessage('Orders', `Nenhum clientOrderId encontrado para orderId: ${order.orderId}`);
+          return;
+        }
+        logMessage('Ordens', `Ordem: ${status} para ${order.orderId} (clientOrderId: ${clientOrderId})`);
+        parentPort.postMessage({
+          type: 'orderStatus',
+          channel: 'Ordens',
+          orderId: clientOrderId,
+          status,
+          instId: order.symbol,
+          avgPx: order.avgPrice || null,
+          fillSz: order.cumExecQty || null,
+          cancelSource: order.rejectReason || null,
+          abs,
+          t,
+        });
+      });
+    }
+  });
+  orderWs.on('ping', () => {
+    console.log('Recebido ping do servidor Bybit');
+    orderWs.pong();
+  });
+  orderWs.on('pong', () => {
+    console.log('Recebido pong do WebSocket Bybit');
+  });
+  orderWs.on('close', () => {
+    logMessage('Geral', 'Order WebSocket fechado');
+    clearPingIntervalOrder();
+    setTimeout(connectOrderWebSocket, 5000);
+  });
+  orderWs.on('error', (err) => {
+    logMessage('Erro', `Erro no Order WebSocket: ${err.message}`);
+  });
+}
+
+function startPingIntervalTrade() {
+  clearPingIntervalTrade();
+  pingIntervalTrade = setInterval(() => {
+    if (tradeWs && tradeWs.readyState === WebSocket.OPEN) {
+      tradeWs.ping();
+      logMessage('Geral', 'Enviado ping ao Trade WebSocket Bybit');
+    }
+  }, 15000);
+}
+
+function clearPingIntervalTrade() {
+  if (pingIntervalTrade) {
+    clearInterval(pingIntervalTrade);
+    pingIntervalTrade = null;
+  }
+}
+
+function startPingIntervalOrder() {
+  clearPingIntervalOrder();
+  pingIntervalOrder = setInterval(() => {
+    if (orderWs && orderWs.readyState === WebSocket.OPEN) {
+      orderWs.ping();
+      logMessage('Geral', 'Enviado ping ao Order WebSocket Bybit');
+    }
+  }, 15000);
+}
+
+function clearPingIntervalOrder() {
+  if (pingIntervalOrder) {
+    clearInterval(pingIntervalOrder);
+    pingIntervalOrder = null;
+  }
+}
+
+function sendOrder(order, clientOrderId) {
+  const formattedOrder = exchanges.Bybit.formatOrder(order);
+  orderIdMap.set(clientOrderId, formattedOrder.id); // Map inicial
+  logMessage('Postagem', `Enviando (clientOrderId: ${clientOrderId}):\n${formatObject(formattedOrder)}`);
+  tradeWs.send(JSON.stringify(formattedOrder));
+}
+
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') {
+    logMessage('Geral', 'Inicializando workerExecBybit.');
+    try {
+      connectTradeWebSocket();
+      connectOrderWebSocket();
+    } catch (error) {
+      console.error(`[workerExecBybit] [abs=${Date.now()}] Erro ao inicializar WebSockets:`, error.message);
+    }
+  } else if (msg.type === 'executeOrder') {
+    t0 = t0 || Date.now();
+    logMessage('Geral', `Recebida ordem (clientOrderId: ${msg.orderId}):\n${formatObject(msg.order)}`);
+    sendOrder(msg.order, msg.orderId);
+  }
+});
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+CODIGO OKX:
+"use strict";
+const { parentPort, workerData } = require('worker_threads');
+const WebSocket = require('ws');
+const crypto = require('crypto');
+
+// Cores ANSI para logs
+const GREEN = '\x1b[32m';
+const BROWN = '\x1b[33m';
+const RESET = '\x1b[0m';
+
+// Credenciais da OKX
+const { okxApiKey, okxApiSecret, okxPassphrase } = workerData;
+
+// Validação das credenciais
+if (!okxApiKey || !okxApiSecret || !okxPassphrase) {
+  console.error('[workerExecOKX] Erro: Credenciais incompletas no workerData:', workerData);
+  throw new Error('Credenciais da OKX não fornecidas corretamente');
+}
+
+// Mapa para correlacionar IDs
+const orderIdMap = new Map();
+
+// Configuração da OKX
+const exchanges = {
+  OKX: {
+    wsUrl: 'wss://ws.okx.com:8443/ws/v5/private',
+    formatOrder: (order) => {
+      const now = new Date();
+      const hhmmssSSS = now.toISOString().slice(11, 23).replace(/[:.]/g, '');
+      let ordType;
+      if (order.type === 'limit' && order.timeInForce?.toLowerCase() === 'ioc') {
+        ordType = 'ioc';
+      } else if (order.type === 'limit' && !order.timeInForce) {
+        ordType = 'limit';
+      } else if (order.type === 'market' && !order.timeInForce) {
+        ordType = 'market';
+      } else {
+        throw new Error(`Tipo inválido: ${order.type}/${order.timeInForce}`);
+      }
+      const orderArgs = {
+        instId: order.symbol.replace(/(.+)(USDT|BRL)/, '$1-$2'),
+        side: order.side,
+        ordType,
+        sz: order.amount,
+        tdMode: 'cash'
+      };
+      if (ordType === 'market') orderArgs.tgtCcy = 'base_ccy';
+      else if (ordType === 'limit' || ordType === 'ioc') orderArgs.px = order.price;
+      return {
+        id: `ORD${hhmmssSSS}`,
+        op: 'order',
+        args: [orderArgs]
+      };
+    },
+    parseStatus: (msg, channel) => {
+      if (channel === 'trade') return msg.code === '0' ? 'accepted' : 'rejected';
+      else if (channel === 'orders') {
+        return msg.state === 'filled' ? 'filled' : msg.state === 'canceled' ? 'cancelled' : 'live';
+      }
+    }
+  }
+};
+
+// Função para formatar objetos
+function formatObject(obj) {
+  return JSON.stringify(obj, null, 2)
+    .replace(/"([^"]+)": "([^"]+)"/g, `"$1": ${GREEN}"$2"${RESET}`)
+    .replace(/"([^"]+)": (\d+(.\d+)?)/g, `"$1": ${BROWN}$2${RESET}`)
+    .replace(/"([^"]+)": null/g, `"$1": null`);
+}
+
+// Função de log com timestamps
+let t0;
+function logMessage(channel, message) {
+  const abs = Date.now();
+  const t = t0 ? abs - t0 : 0;
+  console.log(`[workerExecOKX - ${channel}] [abs=${abs} t=${t}] ${message}`);
+}
+
+// Gera assinatura para autenticação
+function generateOKXSignature(timestamp, method, path, body) {
+  const prehashString = timestamp + method + path + (body || '');
+  return crypto.createHmac('sha256', okxApiSecret).update(prehashString).digest('base64');
+}
+
+let ws;
+let pingInterval;
+
+// Conecta ao WebSocket da OKX
+function connectOKXWebSocket() {
+  ws = new WebSocket(exchanges.OKX.wsUrl);
+
+  ws.on('open', () => {
+    const timestamp = (Date.now() / 1000).toString();
+    const sign = generateOKXSignature(timestamp, 'GET', '/users/self/verify', '');
+    ws.send(JSON.stringify({
+      op: 'login',
+      args: [{ apiKey: okxApiKey, passphrase: okxPassphrase, timestamp, sign }]
+    }));
+    startPingInterval();
+  });
+
+  ws.on('message', (data) => {
+    if (data.toString() === 'pong') {
+      logMessage('Geral', 'Recebido pong do WebSocket OKX');
+      return;
+    }
+
+    let msg;
+    try {
+      msg = JSON.parse(data);
+    } catch (e) {
+      logMessage('Erro', `Erro ao parsear: ${data}`);
+      return;
+    }
+
+    if (msg.event === 'login' && msg.code === '0') {
+      ws.send(JSON.stringify({
+        op: 'subscribe',
+        args: [
+          { channel: 'orders', instType: 'SPOT', instId: 'BTC-USDT' },
+          { channel: 'orders', instType: 'SPOT', instId: 'BTC-BRL' },
+          { channel: 'orders', instType: 'SPOT', instId: 'USDT-BRL' }
+        ]
+      }));
+    }
+
+    if (msg.event === 'subscribe' && msg.arg?.channel === 'orders') {
+      if (msg.arg.instId === 'USDT-BRL') {
+        parentPort.postMessage({ type: 'conexoesProntas' });
+      }
+    }
+
+    if (msg.op === 'order') {
+      const abs = Date.now();
+      const t = t0 ? abs - t0 : 0;
+      const status = exchanges.OKX.parseStatus(msg, 'trade');
+      if (msg.data && msg.data.length > 0) {
+        const orderData = msg.data[0];
+        const clientOrderId = [...orderIdMap.entries()].find(([_, ids]) => ids.id === msg.id)?.[0];
+        if (clientOrderId && orderData.ordId) {
+          orderIdMap.set(clientOrderId, { id: msg.id, ordId: orderData.ordId });
+        }
+        logMessage('Postagem', `Postagem: ${status} para ${orderData.instId} - Motivo: ${orderData.sMsg || 'Desconhecido'}`);
+        parentPort.postMessage({
+          type: 'orderStatus',
+          channel: 'Postagem',
+          orderId: clientOrderId,
+          status,
+          instId: orderData.instId,
+          errorCode: msg.code !== '0' ? msg.code : null,
+          errorMsg: msg.code !== '0' ? msg.msg : null,
+          abs,
+          t
+        });
+      }
+    }
+
+    if (msg.arg?.channel === 'orders' && msg.data?.length > 0) {
+      const abs = Date.now();
+      const t = t0 ? abs - t0 : 0;
+      msg.data.forEach(order => {
+        const status = exchanges.OKX.parseStatus(order, 'orders');
+        const clientOrderId = [...orderIdMap.entries()].find(([_, ids]) => ids.ordId === order.ordId)?.[0];
+        logMessage('Ordens', `Ordem: ${status} para ${order.ordId}`);
+        parentPort.postMessage({
+          type: 'orderStatus',
+          channel: 'Ordens',
+          orderId: clientOrderId,
+          status,
+          instId: order.instId,
+          avgPx: order.avgPx || null,
+          fillSz: order.fillSz || null,
+          cancelSource: order.cancelSource || null,
+          abs,
+          t
+        });
+      });
+    }
+  });
+
+  ws.on('ping', () => {
+    logMessage('Geral', 'Recebido ping do servidor OKX');
+    ws.pong();
+  });
+
+  ws.on('pong', () => {
+    logMessage('Geral', 'Recebido pong do WebSocket OKX');
+  });
+
+  ws.on('close', () => {
+    logMessage('Geral', 'WebSocket OKX fechado');
+    clearPingInterval();
+    setTimeout(connectOKXWebSocket, 5000);
+  });
+
+  ws.on('error', (err) => {
+    logMessage('Erro', `Erro no WebSocket: ${err.message}`);
+  });
+}
+
+// Função para manter a conexão viva com pings
+function startPingInterval() {
+  clearPingInterval();
+  pingInterval = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+      logMessage('Geral', 'Enviado ping ao WebSocket OKX');
+    }
+  }, 15000);
+}
+
+function clearPingInterval() {
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
+}
+
+// Envia ordem à OKX
+function sendOrder(order, clientOrderId) {
+  const formattedOrder = exchanges.OKX.formatOrder(order);
+  orderIdMap.set(clientOrderId, { id: formattedOrder.id, ordId: null });
+  logMessage('Postagem', `Enviando (clientOrderId: ${clientOrderId}):\n${formatObject(formattedOrder)}`);
+  ws.send(JSON.stringify(formattedOrder));
+}
+
+// Inicialização
+parentPort.on('message', (msg) => {
+  if (msg.type === 'init') {
+    logMessage('Geral', 'Inicializando workerExecOKX.');
+    connectOKXWebSocket();
+  } else if (msg.type === 'executeOrder') {
+    t0 = t0 || Date.now();
+    logMessage('Geral', `Recebida ordem (clientOrderId: ${msg.orderId}):\n${formatObject(msg.order)}`);
+    sendOrder(msg.order, msg.orderId);
+  }
+});
+########################################################################################################
+
+agora te passo o worker da binance e o coordenador. A primeira coisa que vc vai fazer é comparar o worker da binance com os outros dois e me dizer as diferenças na forma que o da binance e os outros dos workers implementam a conexao/autorizacao com a plataforma e a dinamica de comunicacao/mensagems com o coordenador. Confirma brevemente o que vc entendeu do meu pedido, mas nao faça nada ate eu te mandar, ok?
+
+CODIGO DO COORDENADOR:
+"use strict";
+const { Worker, MessageChannel } = require("worker_threads");
+
+// Cores ANSI para logs
+const GREEN = "\x1b[32m";
+const BROWN = "\x1b[33m";
+const RESET = "\x1b[0m";
+
+// Matriz de operações (exemplo, incluindo Binance)
+const operacoes = [
+  //{ exchange: "Binance", symbol: "BTCUSDT", side: "buy", type: "limit", amount: "0.0001", price: "87000", timeInForce: "IOC" },
+  { exchange: "Bybit", symbol: "BTCUSDT", side: "sell", type: "limit", amount: "0.0001", price: "88100", timeInForce: "IOC" },
+  { exchange: "OKX", symbol: "USDTBRL", side: "buy", type: "market", amount: "0.100", price: null, timeInForce: null },
+];
+
+// Cria canais de comunicação
+const { port1: portToOKX, port2: portToCoordOKX } = new MessageChannel();
+const { port1: portToBybit, port2: portToCoordBybit } = new MessageChannel();
+const { port1: portToBinance, port2: portToCoordBinance } = new MessageChannel();
+
+// Inicializa os workers
+const workerExecOKX = new Worker("./workerExecOKX.js", {
+  workerData: {
+    okxApiKey: "ac0bc774-1bad-4da2-83f9-55b8eebb697d",
+    okxApiSecret: "4AD9EBBD4A8EEB6526F31B9527545ADC",
+    okxPassphrase: "Aa@066466646",
+  },
+});
+const workerExecBybit = new Worker("./workerExecBybit.js", {
+  workerData: {
+    bybitApiKey: "b6uS8UAyMoRPImNnAU",
+    bybitApiSecret: "47gHJE2gGonqxJlXz8SxOqqLhTDABAbJdaYB",
+  },
+});
+const workerExecBinance = new Worker("./workerExecBinance.js", {
+  workerData: {
+    apiKey: "nYZcNg7kBZfDAGuKpSOceL1h1YUMzSSwRGZut3KUy32KdpYPB0JKi1TV8liqvkVQ",
+    apiSecret: "MC4CAQAwBQYDK2VwBCIEICtYrvoheU+SozG67W4syoWymQ7Z2bTkgvd+IDypO3AM",
+  },
+});
+
+// Mapa de portas por exchange
+const ports = {
+  OKX: portToCoordOKX,
+  Bybit: portToCoordBybit,
+  Binance: portToCoordBinance,
+};
+
+// Inicializa workers
+workerExecOKX.postMessage({ type: "init", port: portToOKX }, [portToOKX]);
+workerExecBybit.postMessage({ type: "init", port: portToBybit }, [portToBybit]);
+workerExecBinance.postMessage({ type: "init", port: portToBinance }, [portToBinance]);
+
+// Variáveis de estado
+let t0;
+let t1Filled = false;
+let t1PendingOrderId = null;
+let timeoutId = null;
+let aborted = false;
+
+// Função para formatar objetos nos logs
+function formatObject(obj) {
+  return JSON.stringify(obj, null, 2)
+    .replace(/"([^"]+)": "([^"]+)"/g, `"$1": ${GREEN}"$2"${RESET}`)
+    .replace(/"([^"]+)": (\d+(.\d+)?)/g, `"$1": ${BROWN}$2${RESET}`)
+    .replace(/"([^"]+)": null/g, `"$1": null`);
+}
+
+// Função de log com timestamps
+function logMessage(channel, message) {
+  const abs = Date.now();
+  const t = t0 ? abs - t0 : 0;
+  console.log(`[coordenador - ${channel}] [abs=${abs} t=${t}] ${message}`);
+}
+
+// Envia ordem ao worker correspondente
+function sendOrderToWorker(order) {
+  const now = new Date();
+  const hhmmssSSS = now.toISOString().slice(11, 23).replace(/[:.]/g, "");
+  const orderId = `CLI${hhmmssSSS}`;
+  // Log de depuração do estado da porta
+  logMessage('Debug', `Enviando ordem para ${order.exchange}. Estado da porta: ${ports[order.exchange] ? 'Ativa' : 'Não inicializada'}`);
+  logMessage("Postagem", `Enviando ordem (${order.symbol}) para ${order.exchange}:\n${formatObject(order)}`);
+  const port = ports[order.exchange];
+  t0 = t0 || Date.now();
+  port.postMessage({ type: "executeOrder", order, orderId, t0 });
+  // Log de erro no envio
+  port.on('messageerror', (err) => {
+    logMessage('Debug', `Erro ao enviar mensagem para ${order.exchange}: ${err.message}`);
+  });
+  return orderId;
+}
+
+// Monitora status dos workers
+let conexoesProntas = { OKX: false, Bybit: false, Binance: false };
+
+function handleWorkerMessage(msg, exchange) {
+  if (msg.type === "conexoesProntas") {
+    conexoesProntas[exchange] = true;
+    logMessage("Geral", `${exchange} pronto.`);
+    if (Object.values(conexoesProntas).every(p => p)) {
+      logMessage("Geral", "Todos os workers prontos. Iniciando arbitragem...");
+      startArbitrage();
+    }
+  } else if (msg.type === "orderStatus" && !aborted) {
+    const channel = msg.channel || "Geral";
+    logMessage(channel, `Status recebido de ${exchange}:\n${formatObject(msg)}`);
+
+    if (msg.orderId === t1PendingOrderId && msg.channel === "Postagem") {
+      if (msg.status === "rejected") {
+        logMessage("Postagem", `T1 rejeitada (par: ${msg.instId || msg.symbol}). Erro: ${msg.errorCode || "N/A"} - ${msg.errorMsg || "N/A"}. Abortando.`);
+        clearTimeout(timeoutId);
+        aborted = true;
+        return;
+      } else if (msg.status === "accepted") {
+        logMessage("Postagem", `T1 aceita (par: ${msg.instId || msg.symbol}). Aguardando status...`);
+      }
+    }
+
+    if (msg.orderId === t1PendingOrderId && msg.channel === "Ordens") {
+      if (msg.status === "live" || msg.status === "NEW") {
+        logMessage("Ordens", `T1 no mercado (par: ${msg.instId || msg.symbol}). Aguardando preenchimento ou cancelamento...`);
+      } else if (msg.status === "filled") {
+        t1Filled = true;
+        logMessage("Ordens", `T1 preenchida (par: ${msg.instId || msg.symbol}). executedPrice=${msg.avgPx || "N/A"}, amount=${msg.fillSz || "N/A"}. Disparando T2/T3...`);
+        clearTimeout(timeoutId);
+        if (operacoes[1]) sendOrderToWorker(operacoes[1]);
+        if (operacoes[2]) sendOrderToWorker(operacoes[2]);
+      } else if (msg.status === "cancelled") {
+        logMessage("Ordens", `T1 cancelada (par: ${msg.instId || msg.symbol}). cancelSource=${msg.cancelSource || "N/A"}. Abortando.`);
+        clearTimeout(timeoutId);
+        aborted = true;
+      }
+    } else if (msg.orderId !== t1PendingOrderId && msg.channel === "Ordens") {
+      logMessage("Ordens", `Status de T2/T3: ${msg.status} (par: ${msg.instId || msg.symbol})`);
+    }
+  }
+}
+
+// Vincula mensagens dos workers
+portToCoordOKX.on("message", (msg) => handleWorkerMessage(msg, "OKX"));
+portToCoordBybit.on("message", (msg) => handleWorkerMessage(msg, "Bybit"));
+portToCoordBinance.on("message", (msg) => handleWorkerMessage(msg, "Binance"));
+
+function startArbitrage() {
+  t0 = Date.now();
+  aborted = false;
+  if (operacoes[0]) {
+    t1PendingOrderId = sendOrderToWorker(operacoes[0]);
+    timeoutId = setTimeout(() => {
+      if (!t1Filled && !aborted) {
+        logMessage("Geral", "Timeout de 10s para T1. Abortando.");
+        aborted = true;
+      }
+    }, 10000); // Timeout de 10 segundos
+  } else {
+    logMessage("Geral", "Nenhuma T1 encontrada.");
+  }
+}
+
+CODIGO DO WORKER DA BINANCE:
+"use strict";
+const { parentPort, workerData } = require('worker_threads');
+const WebSocket = require('ws');
+const crypto = require('crypto');
+
+// Cores ANSI para logs
+const GREEN = '\x1b[32m';
+const BROWN = '\x1b[33m';
+const RESET = '\x1b[0m';
+
+// Credenciais da Binance
+const { apiKey, apiSecret } = workerData;
+
+// Validação das credenciais
+if (!apiKey || !apiSecret) {
+  console.error('[workerExecBinance] Erro: Credenciais incompletas no workerData:', workerData);
+  throw new Error('Credenciais da Binance não fornecidas corretamente');
+}
+
+// Função para formatar objetos nos logs
+function formatObject(obj) {
+  return JSON.stringify(obj, null, 2)
+    .replace(/"([^"]+)": "([^"]+)"/g, `"$1": ${GREEN}"$2"${RESET}`)
+    .replace(/"([^"]+)": (\d+(.\d+)?)/g, `"$1": ${BROWN}$2${RESET}`)
+    .replace(/"([^"]+)": null/g, `"$1": null`);
+}
+
+// Função para assinar a mensagem com Ed25519
+async function signMessage(message) {
+  const secretBuffer = Buffer.from(apiSecret, 'base64');
+  const key = await crypto.subtle.importKey(
+    'pkcs8',
+    secretBuffer,
+    { name: 'Ed25519' },
+    false,
+    ['sign']
+  );
+  const encoder = new TextEncoder();
+  const signature = await crypto.subtle.sign(
+    { name: 'Ed25519' },
+    key,
+    encoder.encode(message)
+  );
+  return Buffer.from(signature).toString('base64');
+}
+
+// Função de log com timestamps
+let t0;
+function logMessage(channel, message) {
+  const abs = Date.now();
+  const t = t0 ? abs - t0 : 0;
+  console.log(`[workerExecBinance - ${channel}] [abs=${abs} t=${t}] ${message}`);
+}
+
+let ws;
+let portToCoord;
+
+// Mapeamento da ordem para o formato da Binance
+function mapOrderToBinance(order) {
+  return {
+    symbol: order.symbol, // ex.: BTCUSDT
+    side: order.side.toUpperCase(), // ex.: BUY
+    type: order.type.toUpperCase(), // ex.: LIMIT
+    quantity: order.amount, // ex.: 0.0001
+    price: order.price, // ex.: 84000
+    timeInForce: order.timeInForce || 'GTC' // Padrão GTC se null
+  };
+}
+
+// Conecta ao WebSocket da Binance
+async function connectBinanceWebSocket() {
+  ws = new WebSocket('wss://ws-api.binance.com:443/ws-api/v3');
+
+  ws.on('open', async () => {
+    logMessage('Conexão', 'Conectado ao WebSocket trade API da Binance.');
+    const timestamp = Date.now();
+    const params = `apiKey=${apiKey}&timestamp=${timestamp}`;
+    const signature = await signMessage(params);
+
+    const authRequest = {
+      id: 1,
+      method: 'session.logon',
+      params: {
+        apiKey: apiKey,
+        timestamp: timestamp,
+        signature: signature
+      }
+    };
+
+    ws.send(JSON.stringify(authRequest));
+  });
+
+  ws.on('message', (data) => {
+    // Logar todas as mensagens recebidas
+    logMessage('WebSocket', `Mensagem bruta recebida: ${data}`);
+    
+    let msg;
+    try {
+      msg = JSON.parse(data);
+      logMessage('Geral', `Mensagem parseada:\n${formatObject(msg)}`);
+    } catch (e) {
+      logMessage('Erro', `Erro ao parsear mensagem: ${data}`);
+      return;
+    }
+
+    if (msg.id === 1 && msg.status === 200) {
+      logMessage('Conexão', 'Autenticado com sucesso.');
+      portToCoord.postMessage({ type: 'conexoesProntas' });
+    }
+
+    // Tratar respostas de ordens (validação e execução)
+    if (msg.id === 2) {
+      const abs = Date.now();
+      const t = t0 ? abs - t0 : 0;
+      if (msg.status !== 200) {
+        logMessage('Postagem', `Ordem rejeitada. Erro: ${msg.error.code} - ${msg.error.msg}`);
+        portToCoord.postMessage({
+          type: 'orderStatus',
+          channel: 'Postagem',
+          orderId: currentOrderId || 'unknown',
+          status: 'rejected',
+          symbol: 'unknown',
+          errorCode: msg.error.code,
+          errorMsg: msg.error.msg,
+          abs,
+          t
+        });
+      } else if (msg.status === 200) {
+        logMessage('Postagem', `Ordem aceita: ${msg.result.orderId}`);
+        portToCoord.postMessage({
+          type: 'orderStatus',
+          channel: 'Postagem',
+          orderId: currentOrderId || 'unknown',
+          status: 'accepted',
+          symbol: msg.result.symbol,
+          abs,
+          t
+        });
+
+        // Mapear status da execução
+        const status = msg.result.status.toUpperCase();
+        let mappedStatus = status === 'FILLED' ? 'filled' : 
+                          status === 'NEW' ? 'live' : 
+                          status === 'EXPIRED' ? 'cancelled' : status.toLowerCase();
+        logMessage('Ordens', `Status da ordem: ${mappedStatus}`);
+        portToCoord.postMessage({
+          type: 'orderStatus',
+          channel: 'Ordens',
+          orderId: currentOrderId || 'unknown',
+          status: mappedStatus,
+          symbol: msg.result.symbol,
+          avgPx: msg.result.executedQty ? (parseFloat(msg.result.cummulativeQuoteQty) / parseFloat(msg.result.executedQty)).toFixed(2) : null,
+          fillSz: msg.result.executedQty || null,
+          cancelSource: mappedStatus === 'cancelled' ? 'expired' : null,
+          abs,
+          t
+        });
+      }
+    }
+  });
+
+  ws.on('error', (err) => {
+    logMessage('Erro', `Erro no WebSocket: ${err.message}`);
+  });
+
+  ws.on('close', () => {
+    logMessage('Conexão', 'WebSocket desconectado. Tentando reconectar em 5s...');
+    setTimeout(connectBinanceWebSocket, 5000);
+  });
+}
+
+// Variável para armazenar o orderId atual
+let currentOrderId;
+
+// Inicialização e recebimento de ordens
+parentPort.on('message', (msg) => {
+  // Log de depuração para todas as mensagens recebidas
+  logMessage('Debug', `Mensagem recebida do coordenador: ${JSON.stringify(msg)}`);
+  // Log do estado de portToCoord e parentPort
+  logMessage('Debug', `Estado de portToCoord: ${portToCoord ? 'Ativo' : 'Não inicializado'}`);
+  logMessage('Debug', `Estado do parentPort: ${parentPort.listenerCount('message')} listeners ativos`);
+
+  if (msg.type === 'init') {
+    portToCoord = msg.port;
+    logMessage('Geral', 'Inicializando workerExecBinance.');
+    t0 = Date.now();
+    connectBinanceWebSocket();
+
+    // Processar mensagens diretamente no portToCoord
+    portToCoord.on('message', (portMsg) => {
+      logMessage('Debug', `Mensagem recebida diretamente no portToCoord: ${JSON.stringify(portMsg)}`);
+
+      if (portMsg.type === 'executeOrder') {
+        currentOrderId = portMsg.orderId; // Armazenar o orderId
+        t0 = portMsg.t0 || Date.now();
+        logMessage('Geral', `Recebida ordem:\n${formatObject(portMsg.order)}`);
+
+        const timestamp = Date.now();
+        const mappedOrder = mapOrderToBinance(portMsg.order);
+        const orderRequest = {
+          id: 2,
+          method: 'order.place',
+          params: {
+            symbol: mappedOrder.symbol,
+            side: mappedOrder.side,
+            type: mappedOrder.type,
+            price: mappedOrder.price,
+            quantity: mappedOrder.quantity,
+            timeInForce: mappedOrder.timeInForce,
+            timestamp: timestamp
+          }
+        };
+
+        logMessage('Postagem', `Enviando ordem:\n${formatObject(orderRequest)}`);
+        ws.send(JSON.stringify(orderRequest));
+      }
+    });
+  } else {
+    // Log para mensagens inesperadas
+    logMessage('Debug', `Mensagem inesperada recebida no parentPort: ${JSON.stringify(msg)}`);
+  }
+});
+
+
+############################################################################################
+
+ok, agora voce vai fazer o seguinte. Consulte na doc da binance a dinamica de pings que mantenham a conexao viva e ajuste o worker. Mantenha o resto do codigo igual, a nao ser que vc ache alguma outra mudança que melhore o desempenho, mas me avisa antes de fazer o codigo. 
+Tambem, refaça o codigo do coordenador mas da seguinte maneira. Primeiro vc inicializa a conexao com a binance. Inclui alguma forma de vc checar que o ws esta conectado e pronto para receber postagem de ordens. So e so quando nao houver duvidas de que a conexao esta pronta, entao ai vc abre as conexoes com a okx e a bybit. E, da mesma maneira, so depois que estas outras conexoes estiverem completamente operacionais, ai sim, vc processa a matriz de operacoes e começa a enviar as ordens segundo a dinamica T1,2 e 3. Agora me diz brevemente o que vc entendeu e se tem alguma duvida, mas nao faça codigo nenhum ate eu te falar, ok?
+
+############################################################################################
+com as matrizes de operacoes da sequencia deu o mesmo resultado, ou seja que o problema na esta na matriz.
+const operacoes = [
+  { exchange: "Bybit", symbol: "BTCUSDT", side: "sell", type: "limit", amount: "0.0001", price: "88100", timeInForce: "IOC" },
+  { exchange: "Binance", symbol: "BTCUSDT", side: "buy", type: "limit", amount: "0.0001", price: "86500", timeInForce: "IOC" },
+  { exchange: "OKX", symbol: "USDTBRL", side: "buy", type: "market", amount: "0.100", price: null, timeInForce: null },
+];
+const operacoes = [
+  { exchange: "Binance", symbol: "BTCUSDT", side: "buy", type: "limit", amount: "0.0001", price: "86500", timeInForce: "IOC" },
+  { exchange: "Bybit", symbol: "BTCUSDT", side: "sell", type: "limit", amount: "0.0001", price: "88100", timeInForce: "IOC" },
+  { exchange: "OKX", symbol: "USDTBRL", side: "buy", type: "market", amount: "0.100", price: null, timeInForce: null },
+];
+
+ou seja, o problema deve estar na comunicacao com os workers, o que vc acha? nao faz os codigos ainda
+
+############################################################################################
+Nao faça nada ainda, so vai analisando e espera.
+
+
+
+
+
+

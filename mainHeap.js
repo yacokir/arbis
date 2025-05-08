@@ -11,7 +11,7 @@ const argv = yargs
   })
   .help()
   .argv;
-const gatilho = 0.001;
+const gatilho = 0.0005;
 const valorMinimoArbitragem = 100;
 const cripto = argv.criptoDaArbitragem.toUpperCase();
 const dolar = argv.dolarDaArbitragem.toUpperCase();
@@ -25,8 +25,8 @@ const codigosFormaPares = [[cripto, dolar], [cripto, moeda], [dolar, moeda]];
 const exchanges = [
   { exchange: 'Bybit', fees: 0.001, venderPode: true, comprarPode: true },
   { exchange: 'Binance', fees: 0.001, venderPode: true, comprarPode: true },
-  { exchange: 'Deribit', fees: 0.001, venderPode: true, comprarPode: true },
-  { exchange: 'bitpreco', fees: 0.001, venderPode: true, comprarPode: true },
+  //{ exchange: 'Deribit', fees: 0.001, venderPode: true, comprarPode: true },
+  //{ exchange: 'bitpreco', fees: 0.001, venderPode: true, comprarPode: true },
   { exchange: 'OKX', fees: 0.001, venderPode: true, comprarPode: true }
 ];
 const cotacoes = {
@@ -293,7 +293,7 @@ function testaArbitragens() {
     outputConsole.push(separator);
     outputConsole.forEach(line => console.log(line));
     if (csvLines.length > 0) {
-      process.stdout.write('\x07');
+      //process.stdout.write('\x07');
       isArbitragePaused = true;
       fs.appendFileSync(arbLogFile, csvLines.join('\n') + '\n');
       outputFile.push(separator);
@@ -306,7 +306,7 @@ function testaArbitragens() {
       setTimeout(() => {
         isArbitragePaused = false;
         console.log(`[Arbitragem] Testes retomados às ${formatTime(new Date())}`);
-      }, 30000);
+      }, 5000);
     }
   }
 }

@@ -1,0 +1,121 @@
+Resumo do Desenvolvimento da Fase 4.b
+A Fase 4.b do projeto ARBIS teve como objetivo principal implementar e refinar a lógica de detecção e envio de matrizes de arbitragem no script mainheap_fase4b.js, garantindo que as matrizes fossem geradas e enviadas ao coordenador imediatamente após a detecção de oportunidades de arbitragem, com ordens configuradas para serem rejeitadas (T1 com amount: "0") e logs detalhados para monitoramento. Abaixo está uma descrição detalhada do desenvolvimento realizado durante esta etapa, cobrindo os problemas identificados, as soluções implementadas, e os resultados alcançados.
+
+Objetivo da Fase 4.b
+Objetivo Principal: Modificar o mainheap_fase4b.js para que a função testaArbitragens() chame construirMatriz() e envie a matriz ao coordenador imediatamente quando uma arbitragem for detectada (vendeDomesticamente > gatilho ou compraDomesticamente > gatilho), respeitando a pausa (isArbitragePaused), e garantir que a matriz seja rejeitada pelo coordenador devido a amount: "0" na T1.
+Objetivos Secundários:
+Remover os envios programados de matrizes (após 5s e 60s) que não eram mais necessários.
+Garantir que as arbitragens só sejam testadas após todas as conexões dos workers (Binance, OKX, Bybit) estarem prontas.
+Adicionar logs para facilitar a depuração, especialmente quando a matriz não for gerada ou quando testes forem ignorados.
+Preservar o comportamento do coordenador_fase4b.js e dos workers, focando apenas nas alterações no mainheap_fase4b.js.
+Desenvolvimento Realizado
+
+1. Problema Inicial: Matrizes Não Enviadas na Detecção de Arbitragens
+Descrição: No log inicial fornecido, uma arbitragem detectada às 09:43:57.319 não gerou uma matriz correspondente porque construirMatriz() só era chamada nos envios programados (5s após "Todos os workers prontos" e 60s após o resultado da primeira matriz), e não diretamente em testaArbitragens() quando uma arbitragem era identificada.
+Solução Implementada:
+Modificada a função testaArbitragens() para chamar construirMatriz(vendeDomesticamente, compraDomesticamente) imediatamente após detectar uma arbitragem (vendeDomesticamente > gatilho ou compraDomesticamente > gatilho).
+coordenador.postMessage({ type: 'executeArbitrage', operacoes: matrizReal, t0: Date.now() });
+Incluído um log para registrar o envio:
+log(`Enviada matriz real com 3 ordens após detecção: ${JSON.stringify(matrizReal)} <==================================`, true);
+Mantida a pausa de 30s (isArbitragePaused = true) após cada detecção para evitar envios concorrentes, com retomada dos testes após o timeout:
+setTimeout(() => {
+  isArbitragePaused = false;
+  console.log(`[Arbitragem] Testes retomados às ${formatTime(new Date())}`);
+}, 30000);
+Resultado: Cada detecção de arbitragem passou a gerar uma matriz, que era impressa no console e enviada ao coordenador. O log de teste mostrou uma arbitragem às 10:02:24.157 com a matriz gerada e enviada corretamente:
+Matriz de operações reais gerada: [...]
+[2025-05-07T10:02:24.170Z] Enviada matriz real com 3 ordens após detecção: [...]
+
+2. Remoção dos Envios Programados
+Descrição: Os envios programados de matrizes (5s após "Todos os workers prontos" e 60s após o resultado da primeira matriz) foram identificados como desnecessários, pois as matrizes agora eram enviadas diretamente na detecção de arbitragens.
+Solução Implementada:
+Removidos os blocos de código no coordenador.on('message'):
+No caso conexoesProntas, eliminado o setTimeout de 5s que enviava a primeira matriz.
+No caso arbitrageResult, removida a lógica de secondMatrixSent e o setTimeout de 60s que enviava a segunda matriz.
+Mantida a lógica de log para eventos como pong, matrixReceived, arbitrageResult, e conexoesProntas para preservar o monitoramento.
+Resultado: Os envios programados foram eliminados, simplificando o fluxo e evitando matrizes redundantes. O comportamento esperado (envio apenas na detecção) foi confirmado no log, sem matrizes enviadas fora do contexto de arbitragens detectadas.
+
+3. Adição de Log para Depuração em construirMatriz()
+Descrição: Para facilitar a identificação de falhas na geração de matrizes, era necessário registrar quando construirMatriz() não retornasse uma matriz válida.
+Solução Implementada:
+Adicionado um log em construirMatriz() para casos em que a matriz não fosse gerada:
+if (matriz.length > 0) {
+  console.log(`Matriz de operações reais gerada: ${JSON.stringify(matriz, null, 2)}`);
+} else {
+  console.log(`Nenhuma matriz gerada: vendeDomesticamente=${vendeDomesticamente}, compraDomesticamente=${compraDomesticamente}, gatilho=${gatilho}`);
+}
+Resultado: O log passou a indicar claramente quando uma matriz não era gerada, incluindo os valores de vendeDomesticamente, compraDomesticamente, e gatilho, facilitando a depuração de casos anômalos.
+
+4. Problema: Arbitragens Detectadas Antes de Todas as Conexões Estarem Prontas
+Descrição: O log de teste revelou que uma arbitragem foi detectada às 10:02:24.157, antes de a Binance estar pronta (conexão confirmada apenas às 10:02:25.869). Isso ocorreu porque testaArbitragens() era chamada por updateBests() sempre que cotações eram atualizadas, mesmo com conexoesProntas.Binance = false.
+Solução Implementada:
+Adicionada uma verificação no início de testaArbitragens() para garantir que todas as conexões estivessem prontas:
+if (!Object.values(conexoesProntas).every(p => p)) {
+  console.log(`[Arbitragem] Teste ignorado às ${formatTime(new Date())}: Conexões incompletas (${JSON.stringify(conexoesProntas)})`);
+  return;
+}
+Incluído um log para registrar quando testes fossem ignorados devido a conexões incompletas, exibindo o estado de conexoesProntas.
+Resultado: A verificação impede que arbitragens sejam testadas antes de todas as conexões (Binance, OKX, Bybit) estarem prontas, garantindo que os cálculos de vendeDomesticamente e compraDomesticamente incluam cotações completas. O log passou a registrar tentativas ignoradas, como:
+[Arbitragem] Teste ignorado às 2025-05-07 10:XX:XX.XXX: Conexões incompletas ({"Binance":false,"OKX":true,"Bybit":true})
+Após todas as conexões estarem prontas, as arbitragens foram detectadas normalmente, conforme confirmado pelo usuário.
+
+5. Configuração das Matrizes para Rejeição
+Descrição: As matrizes geradas em construirMatriz() foram configuradas com amount: "0" na T1 para garantir rejeição pelo coordenador, simulando uma ordem inválida na Fase 4.b.
+Solução Implementada:
+Em construirMatriz(), a T1 foi definida com:
+amount: '0' // Definido como 0 para rejeição
+Para vendeDomesticamente > gatilho:
+matriz.push({
+  exchange: bests[cripto + moeda].bid.exchange,
+  symbol: cripto + moeda,
+  side: 'sell',
+  type: 'limit',
+  amount: '0',
+  price: bests[cripto + moeda].bid.preco.toString(),
+  timeInForce: 'IOC'
+});
+Resultado: O coordenador rejeitou a T1 devido a amount: "0", retornando um erro como:
+Data sent for paramter '' is not valid.
+T2 e T3 foram abortadas com motivo "T1 Failed", conforme esperado:
+T1 | Bybit | BTCBRL | buy | limit | 0 | 553703 | --- | IOC | rejected | 352 | Data sent for paramter '' is not valid.
+T2 | OKX | USDTBRL | sell | market | 2171.92471 | --- | --- | --- | aborted | 352 | T1 Failed
+T3 | OKX | BTCUSDT | sell | market | 1.02282178 | --- | --- | --- | aborted | 352 | T1 Failed
+
+6. Preservação do Comportamento Existente
+Descrição: Era crucial manter o comportamento do coordenador_fase4b.js, dos workers, e das demais funções do mainheap_fase4b.js, exceto pelas alterações específicas.
+Solução Implementada:
+Nenhuma modificação foi feita no coordenador_fase4b.js, que continuou processando matrizes corretamente, rejeitando T1 e abortando T2/T3.
+As funções updateBests, atribuirCotacaoExchange, inicializarWorkers, e o loop de snapshots (a cada 30s) foram mantidas inalteradas.
+A estrutura de logs em saida.txt e fase4b.log foi preservada, com adições apenas para os novos casos (envio de matrizes e testes ignorados).
+Resultado: O sistema continuou funcionando como esperado, com o coordenador confirmando recebimento de matrizes, workers atualizando cotações, e snapshots sendo registrados a cada 30s.
+Resultados Alcançados
+Matrizes Enviadas na Detecção: Cada arbitragem detectada em testaArbitragens() passou a gerar uma matriz, que era impressa e enviada ao coordenador imediatamente, resolvendo o problema inicial (ex.: arbitragem às 09:43:57.319 sem matriz).
+Rejeição Garantida: As matrizes foram configuradas com amount: "0" na T1, resultando em rejeição pelo coordenador e aborto de T2/T3, conforme o objetivo da Fase 4.b.
+Envios Programados Removidos: A eliminação dos envios de 5s e 60s simplificou o fluxo, mantendo apenas os envios baseados em detecção de arbitragens.
+Testes Após Conexões Prontas: A verificação de conexoesProntas em testaArbitragens() garantiu que arbitragens só fossem testadas com cotações completas de Binance, OKX, e Bybit, evitando decisões baseadas em dados parciais.
+Logs Melhorados: A adição de logs em construirMatriz() (para matrizes não geradas) e testaArbitragens() (para testes ignorados) facilitou a depuração, com mensagens claras como:
+Nenhuma matriz gerada: vendeDomesticamente=..., compraDomesticamente=..., gatilho=...
+[Arbitragem] Teste ignorado às 2025-05-07 10:XX:XX.XXX: Conexões incompletas (...)
+Estabilidade Preservada: O comportamento do coordenador, dos workers, e das demais funções foi mantido, com o sistema operando de forma estável e gerando logs detalhados em saida.txt e fase4b.log.
+Logs de Teste
+Os logs fornecidos durante a fase confirmaram o sucesso das alterações:
+Primeiro Teste (Após Remoção dos Envios Programados):
+Arbitragem detectada às 10:02:24.157, com matriz gerada e enviada:
+Matriz de operações reais gerada: [...]
+[2025-05-07T10:02:24.170Z] Enviada matriz real com 3 ordens após detecção: [...]
+T1 rejeitada e T2/T3 abortadas, como esperado:
+T1 | Bybit | BTCBRL | buy | limit | 0 | 553703 | --- | IOC | rejected | 352 | Data sent for paramter '' is not valid.
+T2 | OKX | USDTBRL | sell | market | 2171.92471 | --- | --- | --- | aborted | 352 | T1 Failed
+T3 | OKX | BTCUSDT | sell | market | 1.02282178 | --- | --- | --- | aborted | 352 | T1 Failed
+Problema identificado: arbitragem detectada antes de conexoesProntas.Binance = true.
+Segundo Teste (Após Verificação de Conexões):
+Usuário confirmou que a verificação de conexoesProntas funcionou, evitando testes prematuros de arbitragem.
+Logs de "Teste ignorado" esperados antes de todas as conexões estarem prontas, e arbitragens detectadas apenas após Todos os workers prontos.
+
+Conclusão da Fase 4.b
+A Fase 4.b foi concluída com sucesso, atendendo a todos os objetivos estabelecidos:
+As matrizes agora são geradas e enviadas imediatamente na detecção de arbitragens, com T1 configurada para rejeição.
+Os envios programados foram removidos, simplificando o fluxo.
+Arbitragens só são testadas após todas as conexões estarem prontas, garantindo cotações completas.
+Logs detalhados foram adicionados para depuração, sem comprometer a estabilidade do sistema.
+O código final do mainheap_fase4b.js (artefato c003c121-f792-495d-8b2d-05ae965c9ebf) está pronto para ser usado como base para a próxima fase. O sistema está em um estado estável, com logs claros e comportamento previsível, permitindo avançar para novos desenvolvimentos.
