@@ -15,7 +15,7 @@ const argv = yargs
   .help()
   .argv;
 
-const gatilho = 0.0005; // Ajustado para 0 para disparar arbitragens imediatamente
+const gatilho = 0.0015; // Ajustado para 0 para disparar arbitragens imediatamente
 const valorMinimoArbitragem = 100;
 const cripto = argv.criptoDaArbitragem.toUpperCase();
 const dolar = argv.dolarDaArbitragem.toUpperCase();
@@ -394,7 +394,7 @@ function testaArbitragens() {
       setTimeout(() => {
         isArbitragePaused = false;
         console.log(`[Arbitragem] Testes retomados às ${formatTime(new Date())}`);
-      }, 5000);
+      }, 30000);
     }
   }
 }

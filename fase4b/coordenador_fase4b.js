@@ -7,9 +7,8 @@ const GREEN = "\x1b[32m";
 const BROWN = "\x1b[33m";
 const RESET = "\x1b[0m";
 
-const logFile = path.join(__dirname, '..', 'saida.txt');
 const phaseLogDir = 'C:\\Users\\Yaco\\Desktop\\Cryptos\\ARBIS\\logs';
-const phaseLogFile = path.join(phaseLogDir, 'fase4b.log');
+const phaseLogFile = path.join(phaseLogDir, 'fase4c.log');
 if (!fs.existsSync(phaseLogDir)) {
   fs.mkdirSync(phaseLogDir, { recursive: true });
 }
@@ -17,7 +16,6 @@ if (!fs.existsSync(phaseLogDir)) {
 function log(message, phaseLog = false, color = RESET) {
   const timestamp = new Date().toISOString();
   const logMessage = `[${timestamp}] ${message}`;
-  fs.appendFileSync(logFile, `${logMessage}\n`);
   if (phaseLog) {
     fs.appendFileSync(phaseLogFile, `${logMessage}\n`);
   }
@@ -373,7 +371,7 @@ parentPort.on('message', (msg) => {
   }
 });
 
-log(`Coordenador Fase 4b iniciado <==================================`, true, GREEN);
+log(`Coordenador Fase 4c iniciado <==================================`, true, GREEN);
 
 initializeBinance();
 initializeOKX();
