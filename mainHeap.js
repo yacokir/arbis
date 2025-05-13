@@ -11,7 +11,7 @@ const argv = yargs
   })
   .help()
   .argv;
-const gatilho = 0.0005;
+const gatilho = 0.0015;
 const valorMinimoArbitragem = 100;
 const cripto = argv.criptoDaArbitragem.toUpperCase();
 const dolar = argv.dolarDaArbitragem.toUpperCase();

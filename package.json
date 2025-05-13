@@ -1,0 +1,17 @@
+{
+  "name": "arbis",
+  "version": "1.0.0",
+  "main": "coordenador.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "heap": "^0.2.7",
+    "ws": "^8.18.2",
+    "yargs": "^17.7.2"
+  }
+}
