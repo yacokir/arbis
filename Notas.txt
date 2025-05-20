@@ -108,7 +108,6 @@ C:\Users\Yaco\Desktop\Cryptos\ARBIS>dir backups\fase1_ok_20250501
 26/02/2025  18:07             2.929 workerOkx.js
               17 arquivo(s)      1.295.059 bytes
                2 pasta(s)   39.199.748.096 bytes disponíveis
-
 ======================================
 Log de Mudanças - Sistema ARBIS
 ==============================
@@ -124,30 +123,58 @@ Base:
 
 Mudanças:
   - mainheap_fase1.js:
-    - Adicionado `const path = require('path');` para corrigir erro de ReferenceError.
-    - Implementada inicialização de coordenador_fase1.js com MessageChannel para comunicação ping/pong.
-    - Adicionados logs com marcador `<==================================` para rastreamento.
-    - Alterado caminho dos workers de `./worker${exchange}.js` para `../worker${exchange}.js` devido à mudança de mainheap_fase1.js para a pasta fase1.
+    - Adicionado `const path = require('path');`.
+    - Inicialização de coordenador_fase1.js com ping/pong.
+    - Logs com `<==================================`.
+    - Caminho dos workers alterado para `../worker${exchange}.js`.
   - coordenador_fase1.js:
-    - Substituída matriz de operações para ["Bybit:BTCUSDT","OKX:BTCBRL","Binance:USDTBRL"].
-    - Adicionada resposta a mensagens ping com pong.
-    - Adicionados logs com marcador `<==================================` para rastreamento.
+    - Matriz de operações: ["Bybit:BTCUSDT","OKX:BTCBRL","Binance:USDTBRL"].
+    - Resposta a ping com pong.
+    - Logs com `<==================================`.
 
 Objetivo:
-  - Testar comunicação ping/pong entre mainheap_fase1.js e coordenador_fase1.js (Fase 1).
+  - Testar comunicação ping/pong.
 
 Status:
-  - Comunicação ping/pong: Sucesso (logs confirmados em console e saida.txt).
-  - Workers de dados: Funcionando, coletando cotações (BTCUSDT, BTCBRL, USDTBRL).
-  - WorkerExec:
-    - Binance: Conexão e autenticação OK.
-    - OKX: Conexão, autenticação e subscrição OK.
-    - Bybit: Conexão WebSocket OK, mas autenticação falhou (API key expirada, esperado na Fase 1).
-  - Arbitragem: Nenhuma chamada disparada (VD/CD abaixo do gatilho 0.0010), conforme esperado.
-  - Saida.txt: Vazio para arbitragens, mas contém snapshots e logs de inicialização.
+  - Ping/pong: Sucesso.
+  - Workers de dados: Coletando cotações.
+  - WorkerExec: Binance/OKX OK, Bybit autenticação falhou (esperado).
+  - Arbitragem: Não disparada (gatilho 0.0010).
+  - Saida.txt: Snapshots e logs de inicialização.
 
 Commit:
-  - Mensagem: "Fase 1: comunicação ping/pong com coordenador, corrigido path e caminho dos workers"
+  - "Fase 1: comunicação ping/pong com coordenador, corrigido path e caminho dos workers"
 
 ==============================
+Data: 07/05/2025
+Fase: 4
+A fase 4 foi dividida em subfases. A ultima fase desenvolvida é a Fase 4b
+
+Arquivos modificados:
+  - fase4b/mainheap_fase4b.js
+
+Base:
+  - coordenadores_fase4b.js, workers (reutilizados)
+
+Mudanças:
+  - mainheap_fase4b.js:
+    - testaArbitragens() chama construirMatriz() e envia matriz ao coordenador na detecção.
+    - Removidos envios programados (5s, 60s).
+    - Log em construirMatriz() para matrizes geradas/não geradas.
+    - Verificação de conexoesProntas em testaArbitragens(), com log para testes ignorados.
+    - T1 com amount: "0" para rejeição.
+
+Objetivo:
+  - Detecção imediata de arbitragens, envio de matrizes com T1 rejeitada, testes após conexões prontas.
+
+Status:
+  - Detecção: Matrizes enviadas na detecção.
+  - Rejeição: T1 rejeitada, T2/T3 abortadas.
+  - Conexões: Testes só após conexoesProntas.
+  - Logs: Detalhados em saida.txt, fase4b.log, ArbsBTCUSDTBRL-*.txt.
+  - Sistema: Estável.
+
+Commit:
+  - "Fase 4.b: detecção imediata de arbitragens, envio de matrizes com T1 rejeitada, testes após conexões prontas"
+
 

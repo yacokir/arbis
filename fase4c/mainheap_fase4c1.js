@@ -91,7 +91,7 @@ function formatTime(date) {
 function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, askTime) {
   let bidChanged = false;
   let askChanged = false;
-  let bestBid = bidHeaps[par].peek() || { preco: 0, amount: 0, time: formatTime(new Date()), exchange: "" };
+  let bestBid = bidHeaps[par].peek() || { preco: -9007199254740991, amount: 0, time: formatTime(new Date()), exchange: "" };
   let bestAsk = askHeaps[par].peek() || { preco: Infinity, amount: 0, time: formatTime(new Date()), exchange: "" };
 
   if (bid !== null && bid !== undefined) {
@@ -99,13 +99,13 @@ function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, ask
     let heapArray = bidHeaps[par].toArray();
     const existingIndex = heapArray.findIndex(e => e.exchange === exchange);
     if (existingIndex !== -1) heapArray.splice(existingIndex, 1);
-    if (Number(bidAmount) > 0) {
+    if (Number(bidAmount) > 0 && bid !== '0' && bid !== '-9007199254740991') {
       heapArray.push(bidEntry);
     }
     bidHeaps[par] = new Heap((a, b) => b.preco - a.preco);
     heapArray.filter(entry => entry.amount > 0).forEach(item => bidHeaps[par].push(item));
     
-    bestBid = bidHeaps[par].peek() || { preco: 0, amount: 0, time: formatTime(new Date()), exchange: "" };
+    bestBid = bidHeaps[par].peek() || { preco: -9007199254740991, amount: 0, time: formatTime(new Date()), exchange: "" };
     if (bests[par].bid.preco !== bestBid.preco || bests[par].bid.exchange !== bestBid.exchange) bidChanged = true;
     bests[par].bid = { 
       preco: bestBid.preco, 
@@ -119,7 +119,7 @@ function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, ask
     let heapArray = askHeaps[par].toArray();
     const existingIndex = heapArray.findIndex(e => e.exchange === exchange);
     if (existingIndex !== -1) heapArray.splice(existingIndex, 1);
-    if (Number(askAmount) > 0) {
+    if (Number(askAmount) > 0 && ask !== '9007199254740991') {
       heapArray.push(askEntry);
     }
     askHeaps[par] = new Heap((a, b) => a.preco - b.preco);
@@ -139,11 +139,11 @@ function updateBests(exchange, par, bid, bidAmount, bidTime, ask, askAmount, ask
     bidHeaps[par] = new Heap((a, b) => b.preco - a.preco);
     exchanges.forEach(({ exchange }) => {
       const cotacao = cotacoes[exchange][par];
-      if (Number(cotacao.bidAmount) > 0 && cotacao.bid !== '0') {
+      if (Number(cotacao.bidAmount) > 0 && cotacao.bid !== '0' && cotacao.bid !== '-9007199254740991') {
         bidHeaps[par].push({ preco: Number(cotacao.bid), amount: Number(cotacao.bidAmount), time: cotacao.bidTime, exchange });
       }
     });
-    const newBestBid = bidHeaps[par].peek() || { preco: 0, amount: 0, time: formatTime(new Date()), exchange: "" };
+    const newBestBid = bidHeaps[par].peek() || { preco: -9007199254740991, amount: 0, time: formatTime(new Date()), exchange: "" };
     bests[par].bid = { 
       preco: newBestBid.preco, 
       amount: newBestBid.amount, 
@@ -202,7 +202,7 @@ function atribuirCotacaoExchange(exchange, par, bid = null, bidAmount = null, bi
       cotacoes[exchange][par].bidAmount = bidAmount;
       cotacoes[exchange][par].bidTime = bidTime;
     } else {
-      cotacoes[exchange][par].bid = '0';
+      cotacoes[exchange][par].bid = '-9007199254740991';
       cotacoes[exchange][par].bidAmount = '0';
       cotacoes[exchange][par].bidTime = formatTime(new Date());
     }
@@ -303,19 +303,15 @@ function construirMatriz(vendeDomesticamente, compraDomesticamente, cotacoesUsad
   operacoes.sort((a, b) => new Date(b.time) - new Date(a.time));
 
   // Calcular amounts
-  let amountBTC, amountBRL, amountCriptoDolar, amountCriptoMoeda, amountDolarMoeda;
+  let amountCriptoDolar, amountCriptoMoeda, amountDolarMoeda;
   if (isVD) {
-    amountBTC = valorMinimoArbitragem / bests[cripto + dolar].ask.preco;
-    amountCriptoDolar = amountBTC.toFixed(8);
-    amountBRL = amountBTC * bests[cripto + moeda].bid.preco;
-    amountCriptoMoeda = amountBRL.toFixed(2);
-    amountDolarMoeda = (amountBRL / bests[dolar + moeda].ask.preco).toFixed(2);
+    amountCriptoDolar = (valorMinimoArbitragem / bests[cripto + dolar].ask.preco).toFixed(8);
+    amountCriptoMoeda = amountCriptoDolar;
+    amountDolarMoeda = valorMinimoArbitragem.toFixed(2);
   } else {
-    amountBTC = valorMinimoArbitragem / bests[cripto + dolar].bid.preco;
-    amountCriptoDolar = amountBTC.toFixed(8);
-    amountBRL = amountBTC * bests[cripto + moeda].ask.preco;
-    amountCriptoMoeda = amountBRL.toFixed(2);
-    amountDolarMoeda = (amountBRL / bests[dolar + moeda].bid.preco).toFixed(2);
+    amountCriptoDolar = (valorMinimoArbitragem / bests[cripto + dolar].bid.preco).toFixed(8);
+    amountCriptoMoeda = amountCriptoDolar;
+    amountDolarMoeda = valorMinimoArbitragem.toFixed(2);
   }
 
   // Atribuir amounts às operações com base no symbol
@@ -452,9 +448,13 @@ function testaArbitragens() {
       outputFile.push(separator);
       registrarNoLog(outputFile.join('\n') + '\n');
       const matrizReal = construirMatriz(vendeDomesticamente, compraDomesticamente, cotacoesUsadas);
-      if (matrizReal.length > 0) {
+      // Novo teste: Verificar se todos os amounts são positivos
+      const hasValidAmounts = matrizReal.every(op => Number(op.amount.replace('* ', '')) > 0);
+      if (matrizReal.length > 0 && hasValidAmounts) {
         coordenador.postMessage({ type: 'executeArbitrage', operacoes: matrizReal, t0: Date.now() });
-        log(`Enviada matriz real com 3 ordens após detecção: ${JSON.stringify(matrizReal)} <==================================`, true);
+        log(`Enviada matriz real com ${matrizReal.length} ordens após detecção: ${JSON.stringify(matrizReal)} <==================================`, true);
+      } else {
+        log(`Matriz descartada às ${formatTime(new Date())}: amounts inválidos ou matriz vazia`, true);
       }
       setTimeout(() => {
         isArbitragePaused = false;
